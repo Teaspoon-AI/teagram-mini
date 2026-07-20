@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teagram-brain"
+version = "0.0.0"
+description = "teagram voice brain — Pipecat pipeline with heard-grounded barge-in, memory recall, and tools."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+# Every entry below is a DIRECT import somewhere in the package (the import closure of
+# teagram_brain.gateway_server); transitive deps are left to the resolver.
+#
+# pipecat extras, from what the code imports:
+#   websocket -> pipecat.transports.websocket.fastapi (the /talk transport) + websockets
+#   openai    -> pipecat.services.openai.llm — the ONLY LLM service the brain uses. It
+#                talks to any OpenAI-compatible endpoint (Groq, Cerebras, OpenRouter, a
+#                local server) via LLM_BASE_URL, so no per-provider extras are needed.
+#
+# NOTE: pipecat-ai depends on onnxruntime unconditionally (Silero VAD + Smart Turn v3 both
+# run ONNX models in THIS process) — the brain is torch-free, not onnxruntime-free.
+# See THIRD_PARTY_LICENSES.md.
+#
+# TODO(pin): only pipecat-ai is pinned — it is the version the brain was developed against.
+# The rest are deliberately left unpinned rather than guessed: exact pins must come from the
+# working appliance venv (`~/teagram-venv/bin/pip freeze` on the box, arm64/py3.12), not from
+# a dev-machine resolve. Ask before pinning.
+dependencies = [
+  "pipecat-ai[openai,websocket]==0.0.108",
+  "uvicorn",
+  "fastapi",
+  "loguru",
+  "numpy",
+  "websockets",
+  # stdlib audioop was removed in 3.13 (PEP 594); gateway_serializer imports it for
+  # ratecv resampling. pipecat declares the same shim on the same marker.
+  "audioop-lts~=0.2.1; python_version >= '3.13'",
+]
+
+[project.scripts]
+teagram-brain = "teagram_brain.gateway_server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["teagram_brain*"]
+
+[tool.pytest.ini_options]
+# The tests/test_*.py files are standalone scripts (each has a __main__ that exits
+# nonzero on failure), NOT pytest natives — test_suite.py is the gate and runs them
+# one per subprocess. Collect only the aggregate: pointing pytest at the whole
+# directory would otherwise also try to run their `async def test_*` helpers natively
+# (unsupported without an asyncio plugin) and re-run every script twice.
+testpaths = ["tests"]
+python_files = ["test_suite.py"]

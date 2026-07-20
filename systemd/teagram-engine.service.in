@@ -1,0 +1,18 @@
+# teagram-engine — Voxtral STT + Kokoro TTS inference engine (the closed binary).
+# Rendered by install.sh: @USER@/@PREFIX@/@ETC@ are substituted at install time;
+# ${VARS} are read from @ETC@/engine.env (EnvironmentFile) at runtime.
+[Unit]
+Description=teagram engine (Voxtral STT + Kokoro TTS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+EnvironmentFile=@ETC@/engine.env
+ExecStart=@PREFIX@/bin/voxtral -d @PREFIX@/models/voxtral --serve ${ENGINE_PORT} --delay ${ENGINE_DELAY} --tts-ctx ${TTS_CTX} --tts-model @PREFIX@/models/kokoro/Kokoro_espeak_F16.gguf
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

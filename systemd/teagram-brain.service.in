@@ -1,0 +1,19 @@
+# teagram-brain — the Pipecat voice brain (STT->LLM->TTS gateway on :${BRAIN_PORT}/talk).
+# Rendered by install.sh; ${VARS} come from @ETC@/brain.env. Secrets (the LLM key, the
+# OpenClaw token) are read by the brain from ~/.config/teagram at call time, never here.
+[Unit]
+Description=teagram brain (voice pipeline gateway)
+After=network-online.target teagram-engine.service
+Wants=network-online.target
+Requires=teagram-engine.service
+
+[Service]
+Type=simple
+User=@USER@
+EnvironmentFile=@ETC@/brain.env
+ExecStart=@PREFIX@/venv/bin/teagram-brain --port ${BRAIN_PORT}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
