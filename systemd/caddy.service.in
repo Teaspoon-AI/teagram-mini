@@ -1,0 +1,25 @@
+# teagram front door — Caddy TLS reverse proxy. Rendered by install.sh (@USER@/@PREFIX@/@ETC@).
+# Terminates HTTPS on :443 (a browser needs a secure context for the mic + the gateway's
+# WebCrypto device identity) and reverse-proxies the loopback OpenClaw gateway — the gateway
+# itself never leaves loopback. The upstream + hostname live in @ETC@/Caddyfile.
+[Unit]
+Description=teagram front door (Caddy TLS reverse proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+# Bind :443 as a non-root user without setcap — systemd grants the capability to the process.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+# Caddy's self-signed CA + issued certs live here; StateDirectory is created owned by @USER@,
+# and XDG_DATA_HOME=/var/lib points Caddy's data dir (…/caddy) at it.
+StateDirectory=caddy
+Environment=XDG_DATA_HOME=/var/lib XDG_CONFIG_HOME=/var/lib
+ExecStart=@PREFIX@/bin/caddy run --config @ETC@/Caddyfile --adapter caddyfile
+ExecReload=@PREFIX@/bin/caddy reload --config @ETC@/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -312,6 +312,8 @@ phase_credentials() {
 # Ports + tunables (observed on the reference appliance).
 BRAIN_PORT="${TEAGRAM_BRAIN_PORT:-7861}"
 ENGINE_PORT="${TEAGRAM_ENGINE_PORT:-8000}"
+GATEWAY_PORT="${TEAGRAM_GATEWAY_PORT:-18789}"     # OpenClaw gateway (sandbox -> host forward)
+FRONTDOOR_HOST="${TEAGRAM_HOST:-teagram.local}"   # mDNS name the browser opens over HTTPS
 render_unit() {  # render_unit <template.in> <dest-name>
   local tpl="$HERE/systemd/$1" out="$2"
   [ -f "$tpl" ] || die "missing unit template: $tpl"
@@ -326,6 +328,37 @@ write_env() {  # write_env <path> <lines...>  (SUDO, mode 640)
   if [ "$DRY_RUN" = 1 ]; then printf '  [dry-run] write %s:\n' "$path"; printf '    %s\n' "$@"; return; fi
   printf '%s\n' "$@" | SUDO tee "$path" >/dev/null
   SUDO chmod 640 "$path"; SUDO chgrp "$RUN_USER" "$path" 2>/dev/null || true
+}
+
+# write_caddyfile <path> — the front-door reverse proxy. 'tls internal' is a self-signed
+# cert (offline, one-time browser trust); swap it for an ACME/DNS-01 block to get a real
+# no-warning cert for a name that resolves to the LAN IP. WebSocket upgrades (the /talk
+# stream) pass through reverse_proxy automatically.
+write_caddyfile() {
+  local path="$1"
+  if [ "$DRY_RUN" = 1 ]; then
+    printf '  [dry-run] write %s  (%s -> 127.0.0.1:%s, tls internal)\n' "$path" "$FRONTDOOR_HOST" "$GATEWAY_PORT"; return
+  fi
+  printf '%s\n' \
+    "# teagram front door — rendered by install.sh. Edit the tls/upstream here, then:" \
+    "#   sudo systemctl reload caddy.service" \
+    "$FRONTDOOR_HOST {" \
+    "    tls internal" \
+    "    reverse_proxy 127.0.0.1:$GATEWAY_PORT" \
+    "}" | SUDO tee "$path" >/dev/null
+}
+
+# set_avahi_hostname <name> — publish <name>.local over mDNS. Best-effort: if avahi's conf
+# isn't where we expect, the box still answers to its default $(hostname).local.
+set_avahi_hostname() {
+  local name="$1" conf=/etc/avahi/avahi-daemon.conf
+  if [ "$DRY_RUN" = 1 ]; then printf '  [dry-run] set avahi host-name=%s in %s\n' "$name" "$conf"; return; fi
+  [ -f "$conf" ] || { warn "avahi conf not found ($conf) — mDNS name left at default"; return; }
+  if grep -qE '^[[:space:]]*#?[[:space:]]*host-name=' "$conf"; then
+    SUDO sed -i -E "s|^[[:space:]]*#?[[:space:]]*host-name=.*|host-name=$name|" "$conf"
+  else
+    SUDO sed -i -E "s|^\[server\]|[server]\nhost-name=$name|" "$conf"
+  fi
 }
 
 phase_services() {
@@ -344,7 +377,7 @@ phase_services() {
     "BRAIN_PORT=$BRAIN_PORT" \
     "LLM_BASE_URL=$LLM_BASE_URL" "LLM_MODEL=$LLM_MODEL" \
     "TEAGRAM_URL=ws://127.0.0.1:$ENGINE_PORT/v1/realtime" \
-    "OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789" \
+    "OPENCLAW_GATEWAY_URL=http://127.0.0.1:$GATEWAY_PORT" \
     "TEAGRAM_PERSONA_FILE=$SECRETS/persona.md" \
     "GATEWAY_TOKEN=$GATEWAY_TOKEN" "MALLOC_ARENA_MAX=2" "HF_HUB_OFFLINE=1"
 
@@ -357,19 +390,47 @@ phase_services() {
   if [ -n "$SANDBOX" ]; then SUDO systemctl enable --now teagram-sandbox-recover.service; fi
 }
 
+# The browser front door: HTTPS + mDNS so a LAN browser reaches the gateway in a secure
+# context — getUserMedia (mic) and the gateway's WebCrypto device identity only work over
+# HTTPS or localhost, so plain http://<ip> loads the page but the mic and pairing are dead.
+# Only meaningful when a gateway exists to front (a sandbox was wired in phase_agent); a
+# voice-only install has no gateway, so skip.
+phase_frontdoor() {
+  if [ -z "$SANDBOX" ]; then log "front door: skipped (no gateway — voice-only install)"; return 0; fi
+  log "front door: Caddy TLS (:443 -> gateway :$GATEWAY_PORT) + mDNS $FRONTDOOR_HOST"
+  # Caddy binary: manifest-pinned + sha-verified, same path as the engine artifacts.
+  download "$(mget frontdoor.caddy.url 2>/dev/null || echo TODO)" "$PREFIX/bin/caddy" \
+           "$(mget frontdoor.caddy.sha256 2>/dev/null || echo TODO)"
+  run chmod +x "$PREFIX/bin/caddy"
+  write_caddyfile "$ETC/Caddyfile"
+  render_unit caddy.service.in caddy.service
+  # mDNS: publish $FRONTDOOR_HOST so LAN browsers resolve it with no DNS setup.
+  SUDO apt-get install -y avahi-daemon
+  set_avahi_hostname "${FRONTDOOR_HOST%.local}"
+  SUDO systemctl daemon-reload
+  SUDO systemctl enable --now avahi-daemon caddy.service
+}
+
 phase_verify() {
   log "verify"
-  if [ "$DRY_RUN" = 1 ]; then log "(dry-run) would check engine :$ENGINE_PORT, brain :$BRAIN_PORT, sandbox->brain"; return; fi
+  if [ "$DRY_RUN" = 1 ]; then log "(dry-run) would check engine :$ENGINE_PORT, brain :$BRAIN_PORT$([ -n "$SANDBOX" ] && echo ', front door :443'), sandbox->brain"; return; fi
   # Engine loads its model in ~1 min (the --delay window); poll before giving up.
   local ok=1
   for i in $(seq 1 40); do ss -ltn 2>/dev/null | grep -q ":$ENGINE_PORT " && break; sleep 3; done
   ss -ltn 2>/dev/null | grep -q ":$ENGINE_PORT " || { warn "engine :$ENGINE_PORT not listening"; ok=0; }
   ss -ltn 2>/dev/null | grep -q ":$BRAIN_PORT "  || { warn "brain :$BRAIN_PORT not listening";  ok=0; }
+  # Front door only exists when a gateway was fronted (phase_frontdoor).
+  if [ -n "$SANDBOX" ]; then
+    ss -ltn 2>/dev/null | grep -q ":443 " || { warn "front door :443 not listening — browser access is down"; ok=0; }
+  fi
   [ "$ok" = 1 ] && log "engine + brain are up" || warn "something is not up — 'teagram doctor' / journalctl -u teagram-brain"
 }
 
 usage_footer() {
   log "done."
+  if [ -n "$SANDBOX" ]; then
+    printf '  browser: open https://%s from a LAN device (accept the one-time cert), then pair + Talk.\n' "$FRONTDOOR_HOST"
+  fi
   cat <<EOF
   next: open your OpenClaw dashboard, pair the device, start a Talk session.
   ops:  teagram status | teagram doctor | teagram logs [engine|brain]
@@ -390,6 +451,7 @@ main() {
   phase_agent
   phase_credentials
   phase_services
+  phase_frontdoor
   phase_verify
   usage_footer
 }
