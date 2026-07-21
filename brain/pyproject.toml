@@ -24,15 +24,18 @@ license = { text = "MIT" }
 #
 # Pinned to the deployed appliance venv (`teagram-venv`, arm64 / py3.12.3, `pip freeze`
 # 2026-07-21) so a fresh install resolves the same set the brain was validated against —
-# notably numpy 1.x (a fresh resolve pulls numpy 2.x, which is untested here). These are the
-# DIRECT imports of the gateway_server closure; transitive deps stay resolver-chosen.
+# notably numpy==1.26.4 (pipecat allows numpy<3, so a fresh resolve otherwise pulls 2.x).
+# These are the DIRECT imports of the gateway_server closure; transitive deps stay
+# resolver-chosen. websockets is intentionally NOT pinned: pipecat's `websockets-base`
+# extra owns it (>=13.1,<16.0); the appliance's installed 16.0 is out of that range
+# (drifted past pipecat's cap) and is not reproducible via pip, so let pipecat choose.
 dependencies = [
   "pipecat-ai[openai,websocket]==0.0.108",
   "uvicorn==0.49.0",
   "fastapi==0.136.3",
   "loguru==0.7.3",
   "numpy==1.26.4",
-  "websockets==16.0",
+  "websockets",
   # stdlib audioop was removed in 3.13 (PEP 594); gateway_serializer imports it for
   # ratecv resampling. pipecat declares the same shim on the same marker.
   "audioop-lts~=0.2.1; python_version >= '3.13'",
