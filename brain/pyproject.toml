@@ -22,16 +22,19 @@ license = { text = "MIT" }
 # run ONNX models in THIS process) — the brain is torch-free, not onnxruntime-free.
 # See THIRD_PARTY_LICENSES.md.
 #
-# TODO(pin): only pipecat-ai is pinned — it is the version the brain was developed against.
-# The rest are deliberately left unpinned rather than guessed: exact pins must come from the
-# working appliance venv (`~/teagram-venv/bin/pip freeze` on the box, arm64/py3.12), not from
-# a dev-machine resolve. Ask before pinning.
+# Pinned to the deployed appliance venv (`teagram-venv`, arm64 / py3.12.3, `pip freeze`
+# 2026-07-21) so a fresh install resolves the same set the brain was validated against —
+# notably numpy==1.26.4 (pipecat allows numpy<3, so a fresh resolve otherwise pulls 2.x).
+# These are the DIRECT imports of the gateway_server closure; transitive deps stay
+# resolver-chosen. websockets is intentionally NOT pinned: pipecat's `websockets-base`
+# extra owns it (>=13.1,<16.0); the appliance's installed 16.0 is out of that range
+# (drifted past pipecat's cap) and is not reproducible via pip, so let pipecat choose.
 dependencies = [
   "pipecat-ai[openai,websocket]==0.0.108",
-  "uvicorn",
-  "fastapi",
-  "loguru",
-  "numpy",
+  "uvicorn==0.49.0",
+  "fastapi==0.136.3",
+  "loguru==0.7.3",
+  "numpy==1.26.4",
   "websockets",
   # stdlib audioop was removed in 3.13 (PEP 594); gateway_serializer imports it for
   # ratecv resampling. pipecat declares the same shim on the same marker.
