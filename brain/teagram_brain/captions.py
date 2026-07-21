@@ -67,6 +67,22 @@ _TRACE = os.getenv("TEAGRAM_TRACE", "").strip().lower() in ("1", "true")
 # reply's first audio lands well past this after the user's final.
 _USER_HOLD_S = float(os.getenv("TEAGRAM_CAPTION_USER_HOLD_S", "1.2"))
 
+# pipecat 1.5.0 delivers each spoken word as a BARE TTSTextFrame token (0.0.108
+# carried the inter-word spacing in the token itself). Rejoin tokens with single
+# spaces, attaching trailing punctuation and contraction apostrophes to the
+# previous word, so a caption reads "Hello! How can I help you today?" and not
+# "Hello!Howcanihelpyoutoday?".
+_LEFT_ATTACH = frozenset(",.!?;:)]}%…’'\"")
+
+
+def _append_caption_word(buf: str, word: str) -> str:
+    word = (word or "").strip()
+    if not word:
+        return buf
+    if not buf or word[0] in _LEFT_ATTACH:
+        return buf + word
+    return buf + " " + word
+
 
 class VoiceActivity:
     """One shared fact: when did the USER's transcript last reach the client?
@@ -192,7 +208,7 @@ class CaptionTap(FrameProcessor):
         super().__init__()
         self._activity = activity
         self._ctx = None        # context_id of the utterance currently playing
-        self._buf = ""          # its played words so far (words carry spaces)
+        self._buf = ""          # its played words so far (space-joined; see _append_caption_word)
         self._last_sent = ""    # longest partial emitted for it (forward-only guard)
         self._first_pts = None  # pts of its first word (guards stale End frames)
         self._dead = set()      # barged context ids: drop their late word frames
@@ -263,8 +279,8 @@ class CaptionTap(FrameProcessor):
             if self._ctx is None:
                 self._first_pts = frame.pts
             self._ctx = ctx
-            self._buf += frame.text or ""
-            snapshot = self._buf.strip()
+            self._buf = _append_caption_word(self._buf, frame.text or "")
+            snapshot = self._buf
             if len(snapshot) > len(self._last_sent):
                 if self._user_active():
                     # The client committed the active bubble at the user's interim;

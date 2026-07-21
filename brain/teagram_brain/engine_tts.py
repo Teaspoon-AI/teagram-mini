@@ -316,7 +316,7 @@ class EngineTTSService(TTSService):
         The ENGINE does G2P + number normalization + word timing — the brain sends raw text,
         no phonemize. One WS per call (the stream is one-shot per connection:
         config -> input.text -> input.done -> results -> close). Returns
-        [(audio float32 [-1,1], [(word+' ', start_sec)])], one segment per engine sentence
+        [(audio float32 [-1,1], [(word, start_sec)])], one segment per engine sentence
         (the engine splits input.text on . ! ? and newline; the brain's clause-ramp already
         gates first-audio by sending one clause per call). run_tts applies the seam-trim /
         offset / caption logic. Number expansions fold their word_timestamps back to the
@@ -347,7 +347,10 @@ class EngineTTSService(TTSService):
                         pcm += base64.b64decode(b64)
                     ts = data.get("timestamps")
                     if ts:  # [{word,start_ms,end_ms}]; null (aligner failed) / [] => no words
-                        words = [(w.get("word", "") + " ",
+                        # Bare word tokens (no trailing space): pipecat 1.5.0's word tracker
+                        # matches them against the LLM's leading-space tokens (a trailing space
+                        # mismatches and the word is discarded); captions.py rejoins with spaces.
+                        words = [(w.get("word", ""),
                                   float(w.get("start_ms", 0)) / 1000.0) for w in ts]
                 elif mtype == "audio.done":
                     if data.get("error"):
