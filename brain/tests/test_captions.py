@@ -62,8 +62,11 @@ class Harness:
         self.tap.push_frame = fake_push
 
     async def words(self, text, ctx, pts=None):
+        # pipecat 1.5.0 delivers each word as a BARE TTSTextFrame token (no spacing);
+        # the caption reducer rejoins them. Feeding bare tokens here is what makes this
+        # harness reproduce prod — a trailing space would hide the concatenation bug.
         for w in text.split():
-            await self.tap.process_frame(W(w + " ", ctx, pts), FrameDirection.DOWNSTREAM)
+            await self.tap.process_frame(W(w, ctx, pts), FrameDirection.DOWNSTREAM)
 
     async def feed(self, frame):
         await self.tap.process_frame(frame, FrameDirection.DOWNSTREAM)
@@ -187,6 +190,24 @@ async def test_final_skipped_when_client_committed():
     print("  PASS final skipped when the client already committed identical text")
 
 
+async def test_bare_tokens_rejoined_with_spaces():
+    # pipecat 1.5.0 delivers bare word tokens; the caption must rejoin them with
+    # single spaces (regression: "Hello!Howcanihelpyoutoday?").
+    h = Harness()
+    for tok in ["Hello!", "How", "can", "I", "help", "you", "today?"]:
+        await h.feed(W(tok, "ctx-g"))
+    await h.feed(BotStoppedSpeakingFrame())
+    assert h.finals() == ["Hello! How can I help you today?"], h.sent
+    assert h.partials()[-1] == "Hello! How can I help you today?", h.partials()
+    # Standalone trailing punctuation / a split contraction attaches left (no space).
+    h2 = Harness()
+    for tok in ["It", "'s", "here", "."]:
+        await h2.feed(W(tok, "ctx-p"))
+    await h2.feed(BotStoppedSpeakingFrame())
+    assert h2.finals() == ["It's here."], h2.sent
+    print("  PASS bare tokens rejoined with spaces; punctuation attaches left")
+
+
 async def test_clean_single_utterance():
     h = Harness()
     await h.words("It is forty two degrees.", "ctx-1")
@@ -217,6 +238,7 @@ def test_captions():
         await test_reply_end_finalizes_at_last_word()
         await test_stale_end_ignored()
         await test_final_skipped_when_client_committed()
+        await test_bare_tokens_rejoined_with_spaces()
         await test_clean_single_utterance()
         await test_no_empty_or_double_finals()
     asyncio.run(main())
