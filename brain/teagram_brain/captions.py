@@ -22,9 +22,9 @@
 #
 # The fix: pipecat's TTS gives every utterance its own audio context — one per
 # LLM turn (all its sentences share it), one per standalone TTSSpeakFrame filler
-# — and every word's TTSTextFrame carries that context_id, released by the
-# transport clock at the word's playout time. So playout-paced utterance
-# segmentation needs NO synthesis-time state at all:
+# — and every word's AggregatedTextProgressFrame carries that context_id,
+# released by the transport clock at the word's playout time. So playout-paced
+# utterance segmentation needs NO synthesis-time state at all:
 #
 #   context_id changes  → previous utterance ended seamlessly: finalize it
 #   BotStoppedSpeaking  → real playout silence: finalize the current utterance
@@ -32,10 +32,10 @@
 #                         context DEAD and drop its stragglers (no final — one
 #                         would land as a second bubble after the user's turn)
 #
-# The final text is the utterance's OWN played words (the buffer) — what was
-# actually spoken, in playout order, exactly once. The invariant this enforces:
-# every spoken utterance is charted in exactly one bubble, and bubbles appear in
-# the order the words were heard.
+# The final text is the utterance's OWN played segments — what was actually
+# spoken, in playout order, exactly once. The invariant this enforces: every
+# spoken utterance is charted in exactly one bubble, and bubbles appear in the
+# order the words were heard.
 #
 import os
 
@@ -44,13 +44,13 @@ from loguru import logger
 import time
 
 from pipecat.frames.frames import (
+    AggregatedTextProgressFrame,
     BotStoppedSpeakingFrame,
     Frame,
     InterimTranscriptionFrame,
     LLMFullResponseEndFrame,
     OutputTransportMessageUrgentFrame,
     TranscriptionFrame,
-    TTSTextFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
@@ -67,21 +67,16 @@ _TRACE = os.getenv("TEAGRAM_TRACE", "").strip().lower() in ("1", "true")
 # reply's first audio lands well past this after the user's final.
 _USER_HOLD_S = float(os.getenv("TEAGRAM_CAPTION_USER_HOLD_S", "1.2"))
 
-# pipecat 1.5.0 delivers each spoken word as a BARE TTSTextFrame token (0.0.108
-# carried the inter-word spacing in the token itself). Rejoin tokens with single
-# spaces, attaching trailing punctuation and contraction apostrophes to the
-# previous word, so a caption reads "Hello! How can I help you today?" and not
-# "Hello!Howcanihelpyoutoday?".
-_LEFT_ATTACH = frozenset(",.!?;:)]}%…’'\"")
-
-
-def _append_caption_word(buf: str, word: str) -> str:
-    word = (word or "").strip()
-    if not word:
-        return buf
-    if not buf or word[0] in _LEFT_ATTACH:
-        return buf + word
-    return buf + " " + word
+# Caption text rides pipecat 1.5.0's AggregatedTextProgressFrame, NOT the bare
+# TTSTextFrame word tokens: the sequencer emits one progress frame per word with
+# accumulated_text SLICED from the source sentence — exact spacing, punctuation,
+# and apostrophes ("Whether 'tis", not "Whether'tis") with no rejoin heuristic.
+# Verified live on the appliance (2026-07-21): each progress frame is released
+# by the transport clock in lockstep with its sibling word frame (same pts,
+# <=1 ms apart), so pacing, the caption lead, and barge-in flush behavior are
+# identical to the word frames. accumulated_text restarts at each sentence
+# SEGMENT within a turn's shared audio context; CaptionTap stitches completed
+# segments (their full source text) plus the live segment's accumulated text.
 
 
 class VoiceActivity:
@@ -165,9 +160,13 @@ class CaptionTap(FrameProcessor):
     """Assistant captions: playout-paced partials AND per-utterance finals.
 
     Placed AFTER transport.output(): the output transport queues each word's
-    TTSTextFrame by its presentation timestamp and its clock task releases it
-    DOWNSTREAM exactly when that word's audio plays, so both the partials and the
-    utterance segmentation below are paced to the real voice BY CONSTRUCTION.
+    AggregatedTextProgressFrame by its presentation timestamp and its clock task
+    releases it DOWNSTREAM exactly when that word's audio plays (verified live:
+    lockstep with the sibling TTSTextFrame, same pts), so both the partials and
+    the utterance segmentation below are paced to the real voice BY CONSTRUCTION.
+    accumulated_text is sliced from the source sentence, so spacing, punctuation,
+    and apostrophes are exact — no token-rejoin heuristic (the "Whether'tis"
+    class of bug cannot occur).
 
     Sending from here is the trick: outbound messages are serialized by
     transport.output(), which we sit *after*. But the transport sends an
@@ -183,9 +182,21 @@ class CaptionTap(FrameProcessor):
         finalize. Beating the user's next interim matters (see hold below);
         waiting for BotStopped (~0.4s+ of silence detection) loses that race.
         pts-guarded against stale Ends from wordless (pure tool-call) turns.
-      * a change of TTSTextFrame.context_id — seamless utterance switch.
+      * a change of the progress frame's context_id — seamless utterance switch.
       * BotStoppedSpeaking — real playout silence; the fallback that covers
         fillers (no LLM turn, no End frame) trailing a segment.
+
+    SEGMENTS: within one audio context, pipecat tracks one sentence at a time
+    (one AggregatedTextFrame slot); accumulated_text restarts at each new
+    segment_id. The bubble text is completed segments' full source text plus the
+    live segment's accumulated text, space-joined (sentence boundaries are
+    whitespace in the source). A finalize only fires at a playout boundary, by
+    which point the current segment has fully played, so finals use the full
+    source text — which also covers a force-completed tail (words whose
+    timestamps the engine dropped mid-segment still played as audio). A whole
+    segment with NO word timestamps (engine aligner failure for a clause) has no
+    progress frames at all and is absent from the bubble; the ledger and LLM
+    context are unaffected — accepted trade for deleting the rejoin heuristic.
 
     USER-HOLD: the Talk UI commits the active assistant bubble the moment the
     user's first interim renders — 1-3 words BEFORE the turn/barge machinery
@@ -208,10 +219,13 @@ class CaptionTap(FrameProcessor):
         super().__init__()
         self._activity = activity
         self._ctx = None        # context_id of the utterance currently playing
-        self._buf = ""          # its played words so far (space-joined; see _append_caption_word)
-        self._last_sent = ""    # longest partial emitted for it (forward-only guard)
+        self._seg = None        # segment_id of the sentence currently playing
+        self._seg_text = ""     # that sentence's FULL source text (frame.text)
+        self._done = []         # completed sentences' full source text, playout order
+        self._acc = ""          # live sentence's played prefix (accumulated_text)
+        self._last_sent = ""    # longest partial emitted (forward-only guard)
         self._first_pts = None  # pts of its first word (guards stale End frames)
-        self._dead = set()      # barged context ids: drop their late word frames
+        self._dead = set()      # barged context ids: drop their late progress frames
 
     def _user_active(self) -> bool:
         return bool(self._activity) and self._activity.user_active()
@@ -234,13 +248,25 @@ class CaptionTap(FrameProcessor):
 
     def _reset(self):
         self._ctx = None
-        self._buf = ""
+        self._seg = None
+        self._seg_text = ""
+        self._done = []
+        self._acc = ""
         self._last_sent = ""
         self._first_pts = None
 
+    def _snapshot(self) -> str:
+        """Bubble text right now: completed sentences + the live played prefix."""
+        return " ".join(p for p in [*self._done, self._acc] if p).strip()
+
     async def _finalize(self, reason: str):
-        """Commit the current utterance's bubble with its own played words."""
-        text = self._buf.strip()
+        """Commit the current utterance's bubble.
+
+        A finalize fires only at a playout boundary (context switch, reply-end
+        pts, real silence), by which point the live sentence has fully played —
+        so it contributes its FULL source text, not just the accumulated prefix
+        (covers a force-completed tail whose timestamps the engine dropped)."""
+        text = " ".join(p for p in [*self._done, self._seg_text] if p).strip()
         shown, user_active = self._last_sent, self._user_active()
         self._reset()
         if not text:
@@ -266,11 +292,12 @@ class CaptionTap(FrameProcessor):
         await super().process_frame(frame, direction)
         await self.push_frame(frame, direction)
 
-        if isinstance(frame, TTSTextFrame) and direction == FrameDirection.DOWNSTREAM:
+        if isinstance(frame, AggregatedTextProgressFrame) \
+                and direction == FrameDirection.DOWNSTREAM:
             ctx = frame.context_id
             if ctx in self._dead:
                 if _TRACE:
-                    logger.info(f"[CAP] dropped straggler word={frame.text!r} ctx={ctx}")
+                    logger.info(f"[CAP] dropped straggler acc={frame.accumulated_text!r} ctx={ctx}")
                 return
             if self._ctx is not None and ctx != self._ctx:
                 # Seamless utterance switch (filler → reply, reply → reply with no
@@ -279,8 +306,14 @@ class CaptionTap(FrameProcessor):
             if self._ctx is None:
                 self._first_pts = frame.pts
             self._ctx = ctx
-            self._buf = _append_caption_word(self._buf, frame.text or "")
-            snapshot = self._buf
+            if self._seg is not None and frame.segment_id != self._seg:
+                # New sentence slot: pipecat only advances slots after the
+                # previous one completes, so its full source text is played.
+                self._done.append(self._seg_text)
+            self._seg = frame.segment_id
+            self._seg_text = frame.text or ""
+            self._acc = (frame.accumulated_text or "").strip()
+            snapshot = self._snapshot()
             if len(snapshot) > len(self._last_sent):
                 if self._user_active():
                     # The client committed the active bubble at the user's interim;
@@ -300,7 +333,8 @@ class CaptionTap(FrameProcessor):
         elif isinstance(frame, LLMFullResponseEndFrame) and frame.pts is not None:
             # Playout-paced reply end (released at the last word). Ignore stale
             # Ends from wordless turns: their pts predates this utterance's words.
-            if self._buf and (self._first_pts is None or frame.pts >= self._first_pts):
+            if (self._acc or self._done) and \
+                    (self._first_pts is None or frame.pts >= self._first_pts):
                 await self._finalize("reply end")
         elif isinstance(frame, BotStoppedSpeakingFrame):
             # Real playout silence — covers utterances with no End frame (fillers
