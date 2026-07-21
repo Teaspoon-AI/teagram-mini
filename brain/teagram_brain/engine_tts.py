@@ -16,12 +16,20 @@
 
 import asyncio
 import os
+import time
 from typing import AsyncGenerator
 
 import numpy as np
 from loguru import logger
 
-from pipecat.frames.frames import ErrorFrame, Frame, TTSAudioRawFrame
+from pipecat.frames.frames import (
+    ErrorFrame,
+    Frame,
+    TTSAudioRawFrame,
+    VADUserStartedSpeakingFrame,
+    VADUserStoppedSpeakingFrame,
+)
+from pipecat.processors.frame_processor import FrameDirection
 from pipecat.services.tts_service import TTSService
 
 from teagram_brain import tts_text as tts_text_lead  # noqa: E402  (shared caption-lead constant)
@@ -81,6 +89,17 @@ _CLAUSE_CAP = int(os.getenv("TTS_CLAUSE_CAP", "200"))
 _CLAUSE_HARD_MAX = int(os.getenv("TTS_CLAUSE_HARD_MAX", "350"))
 _SEAM_KEEP_LEAD = float(os.getenv("TTS_SEAM_KEEP_LEAD", "0.05"))   # s kept before first sound
 _SEAM_KEEP_TRAIL = float(os.getenv("TTS_SEAM_KEEP_TRAIL", "0.25"))  # s kept after last sound
+
+# GPU-yield hold: Kokoro synthesis and Voxtral STT share ONE CUDA context in the
+# engine, and synthesis starves transcription (measured 2026-07-21: decode
+# 28 ms/step quiet -> 105 ms/step under one synth loop, 2-33 s/step in live
+# sessions) — exactly when a barge-in needs the user's words transcribed FAST.
+# So while VAD says the user is speaking, run_tts holds before submitting the
+# NEXT clause, freeing the GPU for STT; the barge either fires (interruption
+# cancels this task) or VAD-stop resumes synthesis. The cap bounds the hold so
+# sustained non-barge speech/noise can't stall the reply; the clause-ramp's
+# synthesized lead over playout absorbs a capped hold without an audible gap.
+_USER_SPEECH_HOLD_MAX_S = float(os.getenv("TTS_USER_SPEECH_HOLD_MAX_S", "3.0"))
 
 
 def _trim_seam_silence(audio, words, sr):
@@ -188,6 +207,13 @@ class EngineTTSService(TTSService):
         # between clauses and bails, bounding the stale leak to the clause already
         # synthesized (~0.5-2s of audio) instead of the whole utterance.
         self._interrupted_ctx = set()
+        # Set = user silent (synthesize freely); cleared = user speaking (hold the
+        # next clause so the GPU serves STT — see _USER_SPEECH_HOLD_MAX_S). Toggled
+        # from process_frame by the VAD frames, which are SystemFrames handled on
+        # the input task, so they land while run_tts occupies the process task.
+        self._user_quiet = asyncio.Event()
+        self._user_quiet.set()
+        self._speech_hold_max_s = _USER_SPEECH_HOLD_MAX_S
         # Resolve synthesis language from the explicit request (OpenClaw-driven) or the
         # voice's language family. Populating TTSSettings here also satisfies pipecat's
         # validate_complete() — without it the service logs a NOT_GIVEN warning each start.
@@ -218,6 +244,29 @@ class EngineTTSService(TTSService):
 
     def can_generate_metrics(self) -> bool:
         return True
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        # VAD speech state rides SystemFrames broadcast by the user aggregator;
+        # track it here so run_tts (busy on the process task) can yield the GPU.
+        if isinstance(frame, VADUserStartedSpeakingFrame):
+            self._user_quiet.clear()
+        elif isinstance(frame, VADUserStoppedSpeakingFrame):
+            self._user_quiet.set()
+        await super().process_frame(frame, direction)
+
+    async def _hold_for_user_speech(self):
+        """Between clauses: wait out user speech (capped) so STT gets the GPU."""
+        if self._user_quiet.is_set():
+            return
+        held = time.monotonic()
+        logger.debug(f"{self}: holding synthesis — user speaking (GPU → STT)")
+        try:
+            await asyncio.wait_for(self._user_quiet.wait(),
+                                   timeout=self._speech_hold_max_s)
+        except asyncio.TimeoutError:
+            logger.debug(f"{self}: speech-hold cap reached — resuming synthesis")
+        logger.debug(f"{self}: synthesis resumed after "
+                     f"{time.monotonic() - held:.2f}s hold")
 
     @property
     def espeak_language(self) -> str:
@@ -257,6 +306,9 @@ class EngineTTSService(TTSService):
                 self._interrupted_ctx.discard(context_id)
                 logger.debug(f"{self}: barge-in — dropping remaining clauses of [{text[:40]}…]")
                 return
+            # User speaking → hold this clause so the GPU serves STT (a maybe-barge
+            # needs its words transcribed NOW); resume on VAD-stop or the cap.
+            await self._hold_for_user_speech()
             try:
                 segments = await self._synth_text(clause)
             except Exception as e:  # noqa: BLE001

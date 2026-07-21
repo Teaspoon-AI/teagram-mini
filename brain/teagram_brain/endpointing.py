@@ -38,14 +38,17 @@ VAD_MIN_VOLUME = float(os.getenv("VAD_MIN_VOLUME", "0.6"))
 
 # Barge-in guard. WHILE THE BOT IS SPEAKING, require the user's interrupting speech
 # to reach this many transcribed words before it counts as a real turn and cuts the
-# reply. A 1-2 word STT garble or noise blip ("Poor nature", a mis-heard cough) then
-# can't truncate the bot mid-sentence and make the LLM re-answer (the "speech isn't
+# reply. A single-word STT garble or noise blip (a mis-heard cough) then can't
+# truncate the bot mid-sentence and make the LLM re-answer (the "speech isn't
 # in chat" + "repeats itself" symptoms — an interrupted reply is spoken but not
 # charted, and the re-run regenerates it). When the bot is NOT speaking the strategy
 # self-relaxes to 1 word, so it never delays a normal turn. 1 disables the guard.
-# A real spoken-sentence interruption still lands; a one-word "stop" won't (tune down
-# if you want hair-trigger barge-in back). Tune via TEAGRAM_INTERRUPT_MIN_WORDS.
-INTERRUPT_MIN_WORDS = int(os.getenv("TEAGRAM_INTERRUPT_MIN_WORDS", "3"))
+# 2, not 3: pipecat counts split() tokens, and the NATURAL stop command is two of
+# them ("Okay, stop." / "please stop") — at 3 the bot talked straight through it
+# until the user repeated themselves (observed live 2026-07-21, 4.1s to cut). The
+# cost is that a two-word garble can now barge; accepted for a responsive stop.
+# Tune via TEAGRAM_INTERRUPT_MIN_WORDS.
+INTERRUPT_MIN_WORDS = int(os.getenv("TEAGRAM_INTERRUPT_MIN_WORDS", "2"))
 
 
 class EagerSmartTurnAnalyzer(LocalSmartTurnAnalyzerV3):
