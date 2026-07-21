@@ -34,7 +34,7 @@ from pipecat.frames.frames import (
     Frame,
     FunctionCallResultFrame,
     FunctionCallsStartedFrame,
-    StartInterruptionFrame,
+    InterruptionFrame,
     TTSAudioRawFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
@@ -183,6 +183,6 @@ class ThinkingSound(FrameProcessor):
             # reply audio: the tool's own preamble/filler audio comes first and would
             # otherwise kill the bed during its grace period.)
             await self._stop("consult result")
-        elif self._active and isinstance(frame, StartInterruptionFrame):
+        elif self._active and isinstance(frame, InterruptionFrame):
             await self._stop("barge-in")
         await self.push_frame(frame, direction)

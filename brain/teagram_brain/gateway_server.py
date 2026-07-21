@@ -40,7 +40,7 @@ from pipecat.audio.vad.vad_analyzer import VADParams  # noqa: E402
 from pipecat.frames.frames import LLMRunFrame, TTSSpeakFrame  # noqa: E402
 from pipecat.pipeline.pipeline import Pipeline  # noqa: E402
 from pipecat.pipeline.runner import PipelineRunner  # noqa: E402
-from pipecat.pipeline.task import PipelineParams, PipelineTask  # noqa: E402
+from pipecat.pipeline.task import PipelineTask  # noqa: E402
 from pipecat.processors.aggregators.llm_context import LLMContext  # noqa: E402
 from pipecat.processors.aggregators.llm_response_universal import (  # noqa: E402
     LLMContextAggregatorPair,
@@ -201,14 +201,16 @@ async def run_relay_bot(websocket: WebSocket):
             audio_in_sample_rate=PIPELINE_SAMPLE_RATE,
             audio_out_sample_rate=RELAY_SAMPLE_RATE,
             add_wav_header=False,
-            vad_analyzer=_vad_cls()(
-                params=VADParams(
-                    confidence=VAD_CONFIDENCE, min_volume=VAD_MIN_VOLUME,
-                    stop_secs=ENDPOINT_STOP_SECS,
-                )
-            ),
             serializer=TeagramGatewaySerializer(),
         ),
+    )
+    # pipecat 1.0 moved VAD off the transport onto the user aggregator
+    # (LLMUserAggregatorParams.vad_analyzer); it drives endpointing + barge-in.
+    vad_analyzer = _vad_cls()(
+        params=VADParams(
+            confidence=VAD_CONFIDENCE, min_volume=VAD_MIN_VOLUME,
+            stop_secs=ENDPOINT_STOP_SECS,
+        )
     )
 
     stt = make_stt()
@@ -249,6 +251,7 @@ async def run_relay_bot(websocket: WebSocket):
     context_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
+            vad_analyzer=vad_analyzer,
             user_mute_strategies=[],
             user_turn_strategies=UserTurnStrategies(
                 # Gate interruptions on a min word count so short STT garble can't
@@ -308,7 +311,9 @@ async def run_relay_bot(websocket: WebSocket):
 
     task = PipelineTask(
         pipeline,
-        params=PipelineParams(allow_interruptions=True),
+        # barge-in is governed by the turn-start strategy's enable_interruptions (default
+        # True on MinWordsUserTurnStartStrategy); pipecat 1.0 removed the
+        # PipelineParams.allow_interruptions global switch.
         observers=[ledger],
     )
 
