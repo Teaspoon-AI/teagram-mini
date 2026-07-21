@@ -195,6 +195,17 @@ class EngineTTSService(TTSService):
         from pipecat.services.settings import TTSSettings
         super().__init__(
             sample_rate=_SAMPLE_RATE, push_text_frames=False,
+            # Create + arm the per-reply audio context at reply START (pipecat 1.5.0).
+            # start_word_timestamps() only re-arms the word-timestamp baseline when the
+            # context exists as audio begins draining; with the default (False), pipecat
+            # instead lazily recreates the context via a _turn_context_id fallback that is
+            # stale right after a barge-in — so the FOLLOWING reply's words buffer un-armed
+            # and get force-completed (dumped unpaced) at reply end, and its live word
+            # captions never appear. Creating the context up front makes every reply pace,
+            # including the one after an interruption. (push_text_frames stays False: it is
+            # what gives playout-paced per-word TTSTextFrames; True would emit one unpaced
+            # lump at synthesis end.)
+            push_start_frame=True,
             stop_frame_timeout_s=_STOP_FRAME_TIMEOUT_S,
             settings=TTSSettings(model="engine-tts", voice=voice,
                                  language=self._espeak_lang),
