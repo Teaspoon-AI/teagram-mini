@@ -390,6 +390,24 @@ phase_services() {
   if [ -n "$SANDBOX" ]; then SUDO systemctl enable --now teagram-sandbox-recover.service; fi
 }
 
+# Caddy isn't in the stock Ubuntu repos — add its official Cloudsmith apt repo (idempotent),
+# then install. Keeps the TLS front door patched by apt instead of a frozen, sha-pinned R2 binary.
+install_caddy_apt() {
+  local key=/usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  local list=/etc/apt/sources.list.d/caddy-stable.list
+  if [ "$DRY_RUN" = 1 ]; then printf '  [dry-run] add Caddy apt repo + apt-get install -y caddy\n'; return; fi
+  SUDO apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+  if [ ! -f "$key" ]; then
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | SUDO gpg --dearmor -o "$key" || die "cannot fetch the Caddy repo key"
+  fi
+  if [ ! -f "$list" ]; then
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | SUDO tee "$list" >/dev/null || die "cannot fetch the Caddy repo list"
+  fi
+  SUDO apt-get update -qq
+  SUDO apt-get install -y caddy
+  command -v caddy >/dev/null || die "caddy not installed after apt"
+}
+
 # The browser front door: HTTPS + mDNS so a LAN browser reaches the gateway in a secure
 # context — getUserMedia (mic) and the gateway's WebCrypto device identity only work over
 # HTTPS or localhost, so plain http://<ip> loads the page but the mic and pairing are dead.
@@ -398,17 +416,16 @@ phase_services() {
 phase_frontdoor() {
   if [ -z "$SANDBOX" ]; then log "front door: skipped (no gateway — voice-only install)"; return 0; fi
   log "front door: Caddy TLS (:443 -> gateway :$GATEWAY_PORT) + mDNS $FRONTDOOR_HOST"
-  # Caddy binary: manifest-pinned + sha-verified, same path as the engine artifacts.
-  download "$(mget frontdoor.caddy.url 2>/dev/null || echo TODO)" "$PREFIX/bin/caddy" \
-           "$(mget frontdoor.caddy.sha256 2>/dev/null || echo TODO)"
-  run chmod +x "$PREFIX/bin/caddy"
-  write_caddyfile "$ETC/Caddyfile"
-  render_unit caddy.service.in caddy.service
+  # Caddy is third-party and network-facing: install from its official apt repo so security
+  # fixes flow through the package manager. The deb ships its own caddy.service (runs as user
+  # caddy, reads /etc/caddy/Caddyfile) — we just drop our config there and reload.
+  install_caddy_apt
   # mDNS: publish $FRONTDOOR_HOST so LAN browsers resolve it with no DNS setup.
   SUDO apt-get install -y avahi-daemon
+  write_caddyfile /etc/caddy/Caddyfile
   set_avahi_hostname "${FRONTDOOR_HOST%.local}"
-  SUDO systemctl daemon-reload
   SUDO systemctl enable --now avahi-daemon caddy.service
+  SUDO systemctl reload caddy.service 2>/dev/null || SUDO systemctl restart caddy.service
 }
 
 phase_verify() {

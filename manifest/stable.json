@@ -30,12 +30,6 @@
       }
     }
   },
-  "frontdoor": {
-    "caddy": {
-      "url": "https://get.teagram.co/dl/frontdoor/caddy-TODO-linux-arm64",
-      "sha256": "TODO"
-    }
-  },
   "brain": { "repo": "Teaspoon-AI/teagram-mini", "tag": "TODO" },
   "plugin": { "npm": "@teaspoon-ai/openclaw-teagram-realtime", "version": "0.1.0" },
   "nemoclaw": { "tested_tag": "TODO" }
