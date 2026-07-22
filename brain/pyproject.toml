@@ -37,9 +37,6 @@ dependencies = [
   "loguru==0.7.3",
   "numpy==1.26.4",
   "websockets",
-  # stdlib audioop was removed in 3.13 (PEP 594); gateway_serializer imports it for
-  # ratecv resampling. pipecat declares the same shim on the same marker.
-  "audioop-lts~=0.2.1; python_version >= '3.13'",
 ]
 
 [project.scripts]
