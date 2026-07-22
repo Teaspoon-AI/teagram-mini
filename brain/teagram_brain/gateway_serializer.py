@@ -24,11 +24,11 @@
 # for the bot's final reply, CaptionTap for played-caption partials) turn those
 # pipeline events into OutputTransportMessage frames that land here.
 #
-import audioop
 import json
 
 from loguru import logger
 
+from pipecat.audio.utils import create_stream_resampler
 from pipecat.frames.frames import (
     EndFrame,
     Frame,
@@ -62,7 +62,9 @@ class TeagramGatewaySerializer(FrameSerializer):
         super().__init__()
         self._relay_rate = relay_rate
         self._pipeline_rate = pipeline_rate
-        self._in_state = None  # audioop.ratecv running state (per stream)
+        # soxr streaming resampler: stateful across calls for this session, the same
+        # role the audioop.ratecv running-state served (native pipecat; drops audioop-lts).
+        self._in_resampler = create_stream_resampler()
 
     async def serialize(self, frame: Frame):
         if isinstance(frame, OutputAudioRawFrame):
@@ -90,12 +92,12 @@ class TeagramGatewaySerializer(FrameSerializer):
             audio = bytes(data)
             if self._relay_rate != self._pipeline_rate:
                 try:
-                    audio, self._in_state = audioop.ratecv(
-                        audio, 2, 1, self._relay_rate, self._pipeline_rate, self._in_state
+                    audio = await self._in_resampler.resample(
+                        audio, self._relay_rate, self._pipeline_rate
                     )
-                except audioop.error as e:
+                except Exception as e:  # noqa: BLE001 — network-boundary audio: never kill the session
                     logger.warning(
-                        f"gateway serializer: dropping malformed audio frame "
+                        f"gateway serializer: dropping unresamplable audio frame "
                         f"({len(audio)} bytes): {e}"
                     )
                     return None
