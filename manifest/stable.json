@@ -30,7 +30,7 @@
       }
     }
   },
-  "brain": { "repo": "Teaspoon-AI/teagram-mini", "tag": "TODO" },
+  "brain": { "repo": "Teaspoon-AI/teagram-mini", "tag": "main" },
   "plugin": { "npm": "@teaspoon-ai/openclaw-teagram-realtime", "version": "0.1.0" },
   "nemoclaw": { "tested_tag": "TODO" }
 }
