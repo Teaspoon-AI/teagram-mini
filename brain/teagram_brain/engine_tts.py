@@ -199,14 +199,6 @@ class EngineTTSService(TTSService):
         # base across calls; reset_word_timestamps() zeroes it when the base clears its
         # baseline (reply end / interruption).
         self._reply_audio_offset = 0.0
-        # Contexts barged mid-synthesis. A barge-in removes the audio context, but a
-        # run_tts still in flight keeps yielding — and append_to_audio_context happily
-        # RECREATES the removed context, so the rest of the barged utterance plays
-        # anyway, seconds stale ("Sure thing—where should I check…" spoken after the
-        # user had already answered; observed live 2026-07-05). run_tts checks this set
-        # between clauses and bails, bounding the stale leak to the clause already
-        # synthesized (~0.5-2s of audio) instead of the whole utterance.
-        self._interrupted_ctx = set()
         # Set = user silent (synthesize freely); cleared = user speaking (hold the
         # next clause so the GPU serves STT — see _USER_SPEECH_HOLD_MAX_S). Toggled
         # from process_frame by the VAD frames, which are SystemFrames handled on
@@ -301,11 +293,11 @@ class EngineTTSService(TTSService):
         emitted_audio = False
         emitted_secs = 0.0
         failed_clauses = 0
+        # No interrupted-context bookkeeping here: a barge-in cancels the process
+        # task this generator runs on (pipecat 1.5.0 InterruptionFrame handling),
+        # so an in-flight run_tts dies at its next await — measured 255 live
+        # interruptions with zero survivors before the old guard was removed.
         for clause in clauses:
-            if context_id in self._interrupted_ctx:
-                self._interrupted_ctx.discard(context_id)
-                logger.debug(f"{self}: barge-in — dropping remaining clauses of [{text[:40]}…]")
-                return
             # User speaking → hold this clause so the GPU serves STT (a maybe-barge
             # needs its words transcribed NOW); resume on VAD-stop or the cap.
             await self._hold_for_user_speech()
@@ -356,16 +348,6 @@ class EngineTTSService(TTSService):
         # previous reply's tail offset and schedule every word in the past (dropped).
         await super().reset_word_timestamps()
         self._reply_audio_offset = 0.0
-
-    async def on_audio_context_interrupted(self, context_id: str):
-        # Barge-in cut this context short. Flag it so an in-flight run_tts stops
-        # synthesizing its remaining clauses (see _interrupted_ctx in __init__).
-        await super().on_audio_context_interrupted(context_id)
-        logger.debug(f"{self}: audio context interrupted ctx={str(context_id)[:8]}")
-        if context_id:
-            self._interrupted_ctx.add(context_id)
-            while len(self._interrupted_ctx) > 8:
-                self._interrupted_ctx.pop()
 
     async def _handle_interruption(self, frame, direction):
         # Forensics for the stale-speech bug class: prove the barge-in actually
