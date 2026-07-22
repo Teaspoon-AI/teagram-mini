@@ -22,6 +22,13 @@ Create a Discord application + bot (Developer Portal), enable the **Server
 Members** intent, invite it to your server with Connect + Speak permissions,
 and save the bot token to `~/.config/teagram/discord_bot_token` (mode 0600).
 
+**Installer path (recommended).** The teagram-mini installer sets all of this up
+when you opt in: re-run it with `TEAGRAM_ENABLE_BRIDGE=1` (or with the token
+already saved) and it installs the deps under the prefix, writes the
+`teagram-discord-bridge` service, and enables it. Pass
+`TEAGRAM_BRIDGE_GUILD_ID` / `TEAGRAM_BRIDGE_FOLLOW_USER_ID` non-interactively, or
+let it prompt. The manual steps below are for development or a standalone bridge.
+
 ```bash
 cd bridge/discord
 npm install     # native @discordjs/opus builds from source on arm64 (needs gcc/make/python3);

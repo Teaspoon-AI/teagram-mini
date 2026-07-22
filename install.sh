@@ -18,6 +18,9 @@
 #   TEAGRAM_PLUGIN_SRC     install the plugin from this local dir instead of npm
 #   TEAGRAM_ACCEPT_EULA=1  accept the engine EULA non-interactively
 #   TEAGRAM_ALLOW_NON_JETSON=1   skip the Jetson/L4T gate (dev only; no real install)
+#   TEAGRAM_ENABLE_BRIDGE=1      install + enable the opt-in Discord voice bridge
+#   TEAGRAM_BRIDGE_GUILD_ID / TEAGRAM_BRIDGE_FOLLOW_USER_ID   bridge guild + followed user
+#   TEAGRAM_BRIDGE_SRC     install the bridge from this local dir instead of cloning
 #
 set -euo pipefail
 
@@ -31,6 +34,7 @@ ACCEPT_EULA="${TEAGRAM_ACCEPT_EULA:-0}"
 ALLOW_NON_JETSON="${TEAGRAM_ALLOW_NON_JETSON:-0}"
 BRAIN_SRC="${TEAGRAM_BRAIN_SRC:-}"
 PLUGIN_SRC="${TEAGRAM_PLUGIN_SRC:-}"
+BRIDGE_SRC="${TEAGRAM_BRIDGE_SRC:-}"
 DRY_RUN=0
 # Where this script lives — lets a checkout install its own brain/plugin/systemd.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -318,8 +322,12 @@ render_unit() {  # render_unit <template.in> <dest-name>
   local tpl="$HERE/systemd/$1" out="$2"
   [ -f "$tpl" ] || die "missing unit template: $tpl"
   local nemoclaw_bin; nemoclaw_bin="$(command -v nemoclaw || echo /usr/local/bin/nemoclaw)"
+  # Absolute node path for the bridge unit's ExecStart — systemd services get a minimal PATH
+  # and node may live outside it (nvm/NodeSource), so resolve it at render time like @NEMOCLAW@.
+  local node_bin; node_bin="$(command -v node || echo /usr/bin/node)"
   local body; body="$(sed -e "s#@USER@#$RUN_USER#g" -e "s#@PREFIX@#$PREFIX#g" -e "s#@ETC@#$ETC#g" \
-                          -e "s#@NEMOCLAW@#$nemoclaw_bin#g" -e "s#@SANDBOX@#$SANDBOX#g" "$tpl")"
+                          -e "s#@NEMOCLAW@#$nemoclaw_bin#g" -e "s#@SANDBOX@#$SANDBOX#g" \
+                          -e "s#@NODE@#$node_bin#g" "$tpl")"
   if [ "$DRY_RUN" = 1 ]; then printf '  [dry-run] render %s -> /etc/systemd/system/%s\n' "$1" "$out";
   else printf '%s\n' "$body" | SUDO tee "/etc/systemd/system/$out" >/dev/null; fi
 }
@@ -411,6 +419,71 @@ phase_frontdoor() {
   SUDO systemctl enable --now avahi-daemon caddy.service
 }
 
+# The Discord voice bridge (opt-in). The repo ships bridge/discord but nothing runs it, so a
+# plain voice/browser install stays Discord-free. Enable when TEAGRAM_ENABLE_BRIDGE=1 or a bot
+# token is already present. Discord voice is RTP/UDP and the NemoClaw sandbox is TCP-only, so
+# the bridge runs on the host and owns only the media leg, piping audio to the brain's /talk WS.
+phase_bridge() {
+  local tokfile="$SECRETS/discord_bot_token"
+  local have_token=0
+  { [ -n "${DISCORD_BOT_TOKEN:-}" ] || [ -f "$tokfile" ]; } && have_token=1
+  if [ "${TEAGRAM_ENABLE_BRIDGE:-0}" != 1 ] && [ "$have_token" = 0 ]; then
+    log "discord bridge: not configured — skipped (TEAGRAM_ENABLE_BRIDGE=1 to add it)"
+    return 0
+  fi
+  log "discord bridge: install + enable (host media leg -> brain /talk)"
+  have node || die "the Discord bridge needs Node >= 22 on the host (not found)"
+
+  local guild="${TEAGRAM_BRIDGE_GUILD_ID:-}" follow="${TEAGRAM_BRIDGE_FOLLOW_USER_ID:-}"
+  local token="${DISCORD_BOT_TOKEN:-}"
+  # Idempotent re-run: reuse guild/follow already in bridge.env when not re-supplied via env,
+  # so a plain repair run doesn't blank a previously-configured bridge (same as the gateway token).
+  if [ -f "$ETC/bridge.env" ]; then
+    [ -z "$guild" ]  && guild="$(sed -n 's/^BRIDGE_GUILD_ID=//p' "$ETC/bridge.env" 2>/dev/null | head -1)"
+    [ -z "$follow" ] && follow="$(sed -n 's/^BRIDGE_FOLLOW_USER_ID=//p' "$ETC/bridge.env" 2>/dev/null | head -1)"
+  fi
+  if [ -t 0 ] && [ "$DRY_RUN" != 1 ]; then
+    [ -z "$guild" ]  && read -r -p 'Discord server (guild) id: ' guild
+    [ -z "$follow" ] && read -r -p 'Discord user id to follow into voice: ' follow
+    [ -z "$token" ] && [ ! -f "$tokfile" ] && { read -r -s -p 'Discord bot token: ' token; echo; }
+  fi
+  # Token -> secrets dir (mode 600), never in the unit or env file; the env file only points
+  # the bridge at it via DISCORD_BOT_TOKEN_FILE.
+  if [ -n "$token" ]; then
+    if [ "$DRY_RUN" = 1 ]; then printf '  [dry-run] write %s (mode 600)\n' "$tokfile";
+    else run mkdir -p "$SECRETS"; printf '%s' "$token" > "$tokfile"; chmod 600 "$tokfile"; fi
+  fi
+
+  # Source: a local checkout, else the manifest-pinned clone (same repo/tag as the brain).
+  local src="$BRIDGE_SRC"
+  [ -z "$src" ] && [ -d "$HERE/bridge/discord" ] && src="$HERE/bridge/discord"
+  if [ -z "$src" ]; then
+    local repo tag work; repo="$(mget brain.repo)"; tag="$(mget brain.tag)"
+    work="$STATE/bridge-src"; SUDO mkdir -p "$STATE"; SUDO chown "$RUN_USER" "$STATE"
+    run git clone --depth 1 --branch "$tag" "https://github.com/$repo.git" "$work"
+    src="$work/bridge/discord"
+  fi
+  SUDO mkdir -p "$PREFIX/bridge"; SUDO chown -R "$RUN_USER" "$PREFIX/bridge"
+  run cp "$src/index.js" "$src/package.json" "$PREFIX/bridge/"
+  # --omit=dev; the host toolchain builds @discordjs/opus from source (JetPack ships gcc/make/python3).
+  run npm install --omit=dev --no-audit --no-fund --prefix "$PREFIX/bridge"
+
+  write_env "$ETC/bridge.env" \
+    "BRIDGE_GUILD_ID=$guild" "BRIDGE_FOLLOW_USER_ID=$follow" \
+    "BRAIN_URL=ws://127.0.0.1:$BRAIN_PORT/talk" \
+    "DISCORD_BOT_TOKEN_FILE=$tokfile"
+  render_unit teagram-discord-bridge.service.in teagram-discord-bridge.service
+  SUDO systemctl daemon-reload
+  # Enable + start only when fully configured; otherwise install the unit inert so the operator
+  # can fill $ETC/bridge.env + the token and start it, with no crash-loop on missing config.
+  if [ -n "$guild" ] && [ -n "$follow" ] && { [ -n "$token" ] || [ -f "$tokfile" ]; }; then
+    SUDO systemctl enable --now teagram-discord-bridge.service
+  else
+    SUDO systemctl enable teagram-discord-bridge.service
+    warn "bridge installed but not started — set BRIDGE_GUILD_ID/BRIDGE_FOLLOW_USER_ID in $ETC/bridge.env + the token in $tokfile, then: systemctl start teagram-discord-bridge"
+  fi
+}
+
 phase_verify() {
   log "verify"
   if [ "$DRY_RUN" = 1 ]; then log "(dry-run) would check engine :$ENGINE_PORT, brain :$BRAIN_PORT$([ -n "$SANDBOX" ] && echo ', front door :443'), sandbox->brain"; return; fi
@@ -452,6 +525,7 @@ main() {
   phase_credentials
   phase_services
   phase_frontdoor
+  phase_bridge
   phase_verify
   usage_footer
 }
