@@ -3,11 +3,11 @@
   "channel": "beta",
   "_note": "Beta channel manifest — same shape as stable.json. Placeholder values until the first beta is cut.",
   "engine": {
-    "release": "TODO",
+    "release": "1.3",
     "assets": {
       "l4t38-cu13": {
-        "url": "https://get.teagram.co/dl/engine/voxtral-TODO-l4t38-cu13",
-        "sha256": "TODO"
+        "url": "https://get.teagram.co/dl/engine/teagram-engine-1.3-l4t38-cu13",
+        "sha256": "8e8ccc194ae9966e6795078a822ab142200ab1f988faf014064fcb45f06d56a4"
       }
     }
   },
