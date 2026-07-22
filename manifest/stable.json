@@ -7,7 +7,7 @@
     "eula": {
       "version": "1.0",
       "url": "https://get.teagram.co/eula/teagram-engine-license-1.0.txt",
-      "sha256": "TODO"
+      "sha256": "01e025d1a68d1dae4a92317d5e4d354b01fe596672402b2399cce504fbe766e3"
     },
     "assets": {
       "l4t38-cu13": {
