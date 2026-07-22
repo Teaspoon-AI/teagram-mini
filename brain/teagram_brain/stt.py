@@ -251,7 +251,7 @@ class TeagramSTTService(WebsocketSTTService):
     # ---- transcripts out ---------------------------------------------------
 
     async def _receive_messages(self):
-        # Iterate the base class's websocket directly (pipecat 0.0.108).
+        # Iterate the base class's websocket directly (WebsocketSTTService owns it).
         # Returning normally on graceful close is expected; the base
         # _receive_task_handler handles reconnect/cleanup.
         if not self._websocket:
