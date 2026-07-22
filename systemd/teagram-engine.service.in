@@ -10,7 +10,7 @@ Wants=network-online.target
 Type=simple
 User=@USER@
 EnvironmentFile=@ETC@/engine.env
-ExecStart=@PREFIX@/bin/voxtral -d @PREFIX@/models/voxtral --serve ${ENGINE_PORT} --delay ${ENGINE_DELAY} --tts-ctx ${TTS_CTX} --tts-model @PREFIX@/models/kokoro/Kokoro_espeak_F16.gguf
+ExecStart=@PREFIX@/bin/voxtral -d @PREFIX@/models/voxtral --serve ${ENGINE_PORT} --delay ${ENGINE_DELAY} --tts-ctx ${TTS_CTX} --tts-model @PREFIX@/models/kokoro/Kokoro_espeak_F16.gguf --vad --vad-mode 1 --vad-commit hard
 Restart=on-failure
 RestartSec=5
 
