@@ -5,6 +5,11 @@
 Description=teagram engine (Voxtral STT + Kokoro TTS)
 After=network-online.target
 Wants=network-online.target
+# Engine stops propagate to the brain (its Requires= on this unit), but nothing
+# restarted it afterwards — an engine deploy/build --stop-service left the box
+# voice-dead until a manual start (observed live 2026-07-21). Upholds= keeps the
+# brain running while the engine is active, restarting it when found stopped.
+Upholds=teagram-brain.service
 
 [Service]
 Type=simple
