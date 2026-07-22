@@ -19,14 +19,14 @@
   "models": {
     "kokoro": {
       "url": "https://get.teagram.co/dl/models/kokoro/Kokoro_espeak_F16.gguf",
-      "sha256": "TODO"
+      "sha256": "bcda111bec780ba854b2aff76f0894d24ee4b3008f133d8586d628d1bffbe673"
     },
     "voxtral": {
       "url": "https://get.teagram.co/dl/models/voxtral/consolidated.safetensors",
-      "sha256": "TODO",
+      "sha256": "fd25f9d675042c37b0a9b051a5333ef001c129d302461995bdc3e7b321c3b2b6",
       "aux": {
-        "params.json": "TODO",
-        "tekken.json": "TODO"
+        "params.json": "https://get.teagram.co/dl/models/voxtral/params.json",
+        "tekken.json": "https://get.teagram.co/dl/models/voxtral/tekken.json"
       }
     }
   },
