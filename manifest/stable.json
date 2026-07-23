@@ -6,8 +6,8 @@
     "release": "1.3",
     "eula": {
       "version": "1.0",
-      "url": "https://get.teagram.co/eula/teagram-engine-license-1.0.txt",
-      "sha256": "TODO"
+      "url": "https://get.teagram.co/eula/teagram-mini-engine-license-1.0.txt",
+      "sha256": "5a424458179e2b67548aaecc64ef56079b5e487022cf7b5edef379fc376d58f8"
     },
     "assets": {
       "l4t38-cu13": {
@@ -30,7 +30,7 @@
       }
     }
   },
-  "brain": { "repo": "Teaspoon-AI/teagram-mini", "tag": "TODO" },
+  "brain": { "repo": "Teaspoon-AI/teagram-mini", "tag": "main" },
   "plugin": { "npm": "@teaspoon-ai/openclaw-teagram-realtime", "version": "0.1.0" },
   "nemoclaw": { "tested_tag": "TODO" }
 }
