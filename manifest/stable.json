@@ -6,8 +6,8 @@
     "release": "1.3",
     "eula": {
       "version": "1.0",
-      "url": "https://get.teagram.co/eula/teagram-engine-license-1.0.txt",
-      "sha256": "01e025d1a68d1dae4a92317d5e4d354b01fe596672402b2399cce504fbe766e3"
+      "url": "https://get.teagram.co/eula/teagram-mini-engine-license-1.0.txt",
+      "sha256": "5a424458179e2b67548aaecc64ef56079b5e487022cf7b5edef379fc376d58f8"
     },
     "assets": {
       "l4t38-cu13": {
