@@ -49,7 +49,7 @@ RELAY_SAMPLE_RATE = 24000
 PIPELINE_SAMPLE_RATE = 16000
 
 
-class TeagramGatewaySerializer(FrameSerializer):
+class TeagramMiniGatewaySerializer(FrameSerializer):
     """Binary PCM16 audio + JSON text control between the plugin and the pipeline.
 
     Inbound relay audio (24 kHz) is resampled to the pipeline rate (16 kHz) so Silero
@@ -117,7 +117,7 @@ class TeagramGatewaySerializer(FrameSerializer):
             # Relay -> brain: result of an in-process openclaw_agent_consult
             # (see consult_bridge). Resolved here directly — no pipeline frame;
             # the awaiting tool handler picks it up off its future.
-            from teagram_brain import consult_bridge
+            from teagram_mini_brain import consult_bridge
             consult_bridge.resolve(
                 str(msg.get("call_id") or ""), msg.get("result"),
                 will_continue=bool(msg.get("will_continue")),

@@ -5,7 +5,7 @@ third-party components it depends on and their obligations. The **engine** is a
 separate component that ships under its own license terms with its own attributions;
 nothing here covers the engine.
 
-## Brain (`brain/teagram_brain`, MIT)
+## Brain (`brain/teagram_mini_brain`, MIT)
 
 Python package. Direct runtime dependencies — each one is imported somewhere in the
 package (authoritative list lives in `brain/pyproject.toml`):

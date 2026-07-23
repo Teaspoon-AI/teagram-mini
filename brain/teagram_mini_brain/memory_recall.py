@@ -12,7 +12,7 @@ from pipecat.frames.frames import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
-from teagram_brain.openclaw_client import memory_search
+from teagram_mini_brain.openclaw_client import memory_search
 
 
 class MemoryRecall(FrameProcessor):

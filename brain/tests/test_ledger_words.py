@@ -26,7 +26,7 @@ from pipecat.frames.frames import (  # noqa: E402
 )
 from pipecat.utils.text.base_text_aggregator import AggregationType  # noqa: E402
 
-from teagram_brain.transcript_ledger import TranscriptLedger  # noqa: E402
+from teagram_mini_brain.transcript_ledger import TranscriptLedger  # noqa: E402
 
 INTENDED = "Hello world, how are you today, my friend?"  # 8 words
 

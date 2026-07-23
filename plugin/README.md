@@ -1,12 +1,12 @@
 # openclaw-teagram-realtime
 
-The OpenClaw **realtime-voice provider** for teagram. It connects OpenClaw's
-gateway-relay Talk path to the teagram brain. Plain ESM with **no build
+The OpenClaw **realtime-voice provider** for teagram-mini. It connects OpenClaw's
+gateway-relay Talk path to the teagram-mini brain. Plain ESM with **no build
 step**. It requires **Node ≥ 22** (it uses the global `WebSocket`).
 
 - npm: `@teaspoon-ai/openclaw-teagram-realtime`
 - Registers the `teagram` realtime-voice provider (see `openclaw.plugin.json`).
-- Pairs with the brain in this repository (`brain/teagram_brain/gateway_server.py`).
+- Pairs with the brain in this repository (`brain/teagram_mini_brain/gateway_server.py`).
 
 ## Install and enable
 
@@ -26,9 +26,9 @@ Configure in `~/.openclaw/openclaw.json`:
     "provider": "teagram",
     "mode": "realtime",
     "transport": "gateway-relay",
-    "brain": "none",                        // the teagram brain orchestrates — don't double-respond
+    "brain": "none",                        // the teagram-mini brain orchestrates — don't double-respond
     "providers": { "teagram": {
-      "url": "ws://127.0.0.1:7861/talk",    // the teagram brain's /talk WS
+      "url": "ws://127.0.0.1:7861/talk",    // the teagram-mini brain's /talk WS
       "voice": "af_heart",                   // optional: a voice id the engine provides
       "token": "…"                           // optional: must match the brain's GATEWAY_TOKEN
     } }
@@ -38,7 +38,7 @@ Configure in `~/.openclaw/openclaw.json`:
 
 The plugin appends `voice`, `language`, and `token` to the brain WebSocket URL
 as query parameters for each session. The `token` value can also come from the
-`TEAGRAM_GATEWAY_TOKEN` environment variable.
+`TEAGRAM_MINI_GATEWAY_TOKEN` environment variable.
 
 ## Tests
 

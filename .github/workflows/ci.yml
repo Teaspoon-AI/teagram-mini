@@ -52,4 +52,4 @@ jobs:
           done
       - name: Installer dry-run (voice-only path)
         # No Jetson, no sandbox, not a TTY: exercises the full dry-run without touching the box.
-        run: TEAGRAM_ALLOW_NON_JETSON=1 TEAGRAM_MANIFEST_URL="$PWD/manifest/stable.json" bash install.sh --dry-run
+        run: TEAGRAM_MINI_ALLOW_NON_JETSON=1 TEAGRAM_MINI_MANIFEST_URL="$PWD/manifest/stable.json" bash install.sh --dry-run

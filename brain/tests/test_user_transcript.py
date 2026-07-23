@@ -30,7 +30,7 @@ from pipecat.frames.frames import (  # noqa: E402
 )
 from pipecat.processors.frame_processor import FrameDirection  # noqa: E402
 
-from teagram_brain.captions import UserTranscriptEmitter, VoiceActivity  # noqa: E402
+from teagram_mini_brain.captions import UserTranscriptEmitter, VoiceActivity  # noqa: E402
 
 
 class Harness:

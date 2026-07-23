@@ -29,7 +29,7 @@ import urllib.request
 from loguru import logger
 
 GATEWAY_URL = os.getenv("OPENCLAW_GATEWAY_URL", "http://127.0.0.1:18789").rstrip("/")
-TOKEN_FILE = os.path.expanduser("~/.config/teagram/openclaw_token")
+TOKEN_FILE = os.path.expanduser("~/.config/teagram-mini/openclaw_token")
 
 # Per-search recall budget. This is NOT the turn's wall-clock budget: MemoryRecall fires
 # the search on INTERIM transcripts (re-firing as the query grows) and injects whatever has
@@ -43,8 +43,8 @@ TOKEN_FILE = os.path.expanduser("~/.config/teagram/openclaw_token")
 # recall never triggered. Measured on-box: warm 0.30-0.60 s, COLD (embedder evicted by a synth,
 # the common state since the engine keeps RAM tight) ~1.14 s. 1.5 s clears cold with margin; since
 # MemoryRecall never awaits in the frame path and cancels any straggler at the final transcript,
-# a generous budget adds ZERO turn latency. Tune via TEAGRAM_RECALL_TIMEOUT.
-RECALL_TIMEOUT = float(os.getenv("TEAGRAM_RECALL_TIMEOUT", "1.5"))
+# a generous budget adds ZERO turn latency. Tune via TEAGRAM_MINI_RECALL_TIMEOUT.
+RECALL_TIMEOUT = float(os.getenv("TEAGRAM_MINI_RECALL_TIMEOUT", "1.5"))
 
 # Agent-consult: the rich, SLOW *delegation* primitive for hard questions (a future
 # `ask_openclaw` tool). Runs one full OpenClaw agent turn via the gateway — full
@@ -57,7 +57,7 @@ RECALL_TIMEOUT = float(os.getenv("TEAGRAM_RECALL_TIMEOUT", "1.5"))
 def _find_openclaw_bin() -> str:
     """The host may have no openclaw install at all (appliances run OpenClaw only
     inside the sandbox). Probe: explicit env -> a CLI on PATH -> the deployment
-    shim (~/.config/teagram/openclaw-cli, e.g. a nemoclaw-exec wrapper that runs
+    shim (~/.config/teagram-mini/openclaw-cli, e.g. a nemoclaw-exec wrapper that runs
     the CLI inside the sandbox) -> the legacy ~/node22 path."""
     env = os.getenv("OPENCLAW_BIN")
     if env:
@@ -65,7 +65,7 @@ def _find_openclaw_bin() -> str:
     found = shutil.which("openclaw")
     if found:
         return found
-    shim = os.path.expanduser("~/.config/teagram/openclaw-cli")
+    shim = os.path.expanduser("~/.config/teagram-mini/openclaw-cli")
     if os.access(shim, os.X_OK):
         return shim
     return os.path.expanduser("~/node22/bin/openclaw")
@@ -76,8 +76,8 @@ OPENCLAW_AGENT = os.getenv("OPENCLAW_AGENT_ID", "main")
 # 45 s, not 30: the sandbox-exec shim adds ~14 s of spawn tax (nemoclaw + docker
 # exec + CLI node startup, measured) before the agent turn even starts, and a
 # Discord-action turn needs real time after that. Callers cap the voice wait
-# separately (TEAGRAM_ASK_OPENCLAW_TIMEOUT must stay above ack+consult).
-CONSULT_TIMEOUT = float(os.getenv("TEAGRAM_CONSULT_TIMEOUT", "45"))
+# separately (TEAGRAM_MINI_ASK_OPENCLAW_TIMEOUT must stay above ack+consult).
+CONSULT_TIMEOUT = float(os.getenv("TEAGRAM_MINI_CONSULT_TIMEOUT", "45"))
 
 # Memory WRITE goes the sidecar/direct route (NOT the consult — that proved heavy,
 # non-deterministic, and Cerebras-throttle-prone, see docs/UNIFIED_AGENT_PLAN.md §5.2):
@@ -89,7 +89,7 @@ MEMORY_DIR = os.getenv("OPENCLAW_MEMORY_DIR",
 
 
 def _token() -> str | None:
-    """Gateway bearer token: OPENCLAW_GATEWAY_TOKEN, else ~/.config/teagram/openclaw_token."""
+    """Gateway bearer token: OPENCLAW_GATEWAY_TOKEN, else ~/.config/teagram-mini/openclaw_token."""
     tok = os.getenv("OPENCLAW_GATEWAY_TOKEN")
     if tok:
         return tok.strip()
@@ -376,7 +376,7 @@ async def agent_consult(message: str, *, session_key: str | None = None,
     if rc != 0:
         # Keep the full stderr for postmortem — the log line is truncated.
         try:
-            with open("/tmp/teagram-consult-last.err", "wb") as f:
+            with open("/tmp/teagram-mini-consult-last.err", "wb") as f:
                 f.write(err)
         except OSError:
             pass

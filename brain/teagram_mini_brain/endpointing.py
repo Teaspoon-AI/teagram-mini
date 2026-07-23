@@ -47,8 +47,8 @@ VAD_MIN_VOLUME = float(os.getenv("VAD_MIN_VOLUME", "0.6"))
 # them ("Okay, stop." / "please stop") — at 3 the bot talked straight through it
 # until the user repeated themselves (observed live 2026-07-21, 4.1s to cut). The
 # cost is that a two-word garble can now barge; accepted for a responsive stop.
-# Tune via TEAGRAM_INTERRUPT_MIN_WORDS.
-INTERRUPT_MIN_WORDS = int(os.getenv("TEAGRAM_INTERRUPT_MIN_WORDS", "2"))
+# Tune via TEAGRAM_MINI_INTERRUPT_MIN_WORDS.
+INTERRUPT_MIN_WORDS = int(os.getenv("TEAGRAM_MINI_INTERRUPT_MIN_WORDS", "2"))
 
 
 class EagerSmartTurnAnalyzer(LocalSmartTurnAnalyzerV3):

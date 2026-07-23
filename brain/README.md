@@ -1,20 +1,20 @@
-# teagram-brain
+# teagram-mini-brain
 
-The teagram voice brain, packaged for install: the Pipecat pipeline (engine STT →
+The teagram-mini voice brain, packaged for install: the Pipecat pipeline (engine STT →
 your LLM → engine TTS) with heard-grounded barge-in, memory recall, and tools.
 
 ```
 pip install ./brain
-teagram-brain --port 7861          # serves the OpenClaw plugin at ws://<host>:7861/talk
+teagram-mini-brain --port 7861          # serves the OpenClaw plugin at ws://<host>:7861/talk
 ```
 
-Needs the engine reachable at `TEAGRAM_URL` (STT + TTS); it is not started here.
+Needs the engine reachable at `TEAGRAM_MINI_URL` (STT + TTS); it is not started here.
 Config lives in the environment — see `docs/CONFIG.md`.
 
 ## Layout
 
-`teagram_brain/` is the import closure of the entry point, `gateway_server` (the
-`teagram-brain` console script) — nothing in it is reachable only from tests or dev
+`teagram_mini_brain/` is the import closure of the entry point, `gateway_server` (the
+`teagram-mini-brain` console script) — nothing in it is reachable only from tests or dev
 harnesses. Some highlights:
 
 - `gateway_server` — the `/talk` WebSocket + `/health` app, session eviction, `main()`.

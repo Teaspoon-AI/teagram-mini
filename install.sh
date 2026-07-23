@@ -11,30 +11,30 @@
 #   ./install.sh --help
 #
 # Env overrides (mainly for dev/testing):
-#   TEAGRAM_MANIFEST_URL   manifest URL or local path (default get.teagram.co/manifest/stable.json)
-#   TEAGRAM_PREFIX         install root (default /opt/teagram)
-#   TEAGRAM_ETC            non-secret env dir (default /etc/teagram)
-#   TEAGRAM_BRAIN_SRC      install the brain from this local dir instead of cloning
-#   TEAGRAM_PLUGIN_SRC     install the plugin from this local dir instead of npm
-#   TEAGRAM_ACCEPT_EULA=1  accept the engine EULA non-interactively
-#   TEAGRAM_ALLOW_NON_JETSON=1   skip the Jetson/L4T gate (dev only; no real install)
-#   TEAGRAM_ENABLE_BRIDGE=1      install + enable the opt-in Discord voice bridge
-#   TEAGRAM_BRIDGE_GUILD_ID / TEAGRAM_BRIDGE_FOLLOW_USER_ID   bridge guild + followed user
-#   TEAGRAM_BRIDGE_SRC     install the bridge from this local dir instead of cloning
+#   TEAGRAM_MINI_MANIFEST_URL   manifest URL or local path (default get.teagram.co/manifest/stable.json)
+#   TEAGRAM_MINI_PREFIX         install root (default /opt/teagram-mini)
+#   TEAGRAM_MINI_ETC            non-secret env dir (default /etc/teagram-mini)
+#   TEAGRAM_MINI_BRAIN_SRC      install the brain from this local dir instead of cloning
+#   TEAGRAM_MINI_PLUGIN_SRC     install the plugin from this local dir instead of npm
+#   TEAGRAM_MINI_ACCEPT_EULA=1  accept the engine EULA non-interactively
+#   TEAGRAM_MINI_ALLOW_NON_JETSON=1   skip the Jetson/L4T gate (dev only; no real install)
+#   TEAGRAM_MINI_ENABLE_BRIDGE=1      install + enable the opt-in Discord voice bridge
+#   TEAGRAM_MINI_BRIDGE_GUILD_ID / TEAGRAM_MINI_BRIDGE_FOLLOW_USER_ID   bridge guild + followed user
+#   TEAGRAM_MINI_BRIDGE_SRC     install the bridge from this local dir instead of cloning
 #
 set -euo pipefail
 
-MANIFEST_URL="${TEAGRAM_MANIFEST_URL:-https://get.teagram.co/manifest/stable.json}"
-PREFIX="${TEAGRAM_PREFIX:-/opt/teagram}"
-ETC="${TEAGRAM_ETC:-/etc/teagram}"
-STATE="${TEAGRAM_STATE:-/var/lib/teagram}"
-SECRETS="${TEAGRAM_SECRETS_DIR:-$HOME/.config/teagram}"
-RUN_USER="${TEAGRAM_USER:-$(id -un)}"
-ACCEPT_EULA="${TEAGRAM_ACCEPT_EULA:-0}"
-ALLOW_NON_JETSON="${TEAGRAM_ALLOW_NON_JETSON:-0}"
-BRAIN_SRC="${TEAGRAM_BRAIN_SRC:-}"
-PLUGIN_SRC="${TEAGRAM_PLUGIN_SRC:-}"
-BRIDGE_SRC="${TEAGRAM_BRIDGE_SRC:-}"
+MANIFEST_URL="${TEAGRAM_MINI_MANIFEST_URL:-https://get.teagram.co/manifest/stable.json}"
+PREFIX="${TEAGRAM_MINI_PREFIX:-/opt/teagram-mini}"
+ETC="${TEAGRAM_MINI_ETC:-/etc/teagram-mini}"
+STATE="${TEAGRAM_MINI_STATE:-/var/lib/teagram-mini}"
+SECRETS="${TEAGRAM_MINI_SECRETS_DIR:-$HOME/.config/teagram-mini}"
+RUN_USER="${TEAGRAM_MINI_USER:-$(id -un)}"
+ACCEPT_EULA="${TEAGRAM_MINI_ACCEPT_EULA:-0}"
+ALLOW_NON_JETSON="${TEAGRAM_MINI_ALLOW_NON_JETSON:-0}"
+BRAIN_SRC="${TEAGRAM_MINI_BRAIN_SRC:-}"
+PLUGIN_SRC="${TEAGRAM_MINI_PLUGIN_SRC:-}"
+BRIDGE_SRC="${TEAGRAM_MINI_BRIDGE_SRC:-}"
 DRY_RUN=0
 # Where this script lives — lets a checkout install its own brain/plugin/systemd.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -134,17 +134,17 @@ eula_gate() {
 
   local method="tty"
   if [ "$ACCEPT_EULA" = 1 ]; then
-    log "engine license v$ver accepted non-interactively (TEAGRAM_ACCEPT_EULA=1 — you confirm you have read it: $url)"
+    log "engine license v$ver accepted non-interactively (TEAGRAM_MINI_ACCEPT_EULA=1 — you confirm you have read it: $url)"
     method="env"
   else
     [ -t 0 ] || die "the engine license needs acceptance — re-run on a TTY, or read $url and pass --accept-eula"
-    printf '\n  Teagram Engine License v%s — summary (the full text below governs):\n' "$ver"
+    printf '\n  Teagram Mini Engine License v%s — summary (the full text below governs):\n' "$ver"
     printf '    - personal use by individuals: free\n'
     printf '    - any organizational or commercial use: requires a written license (hello@teagram.co)\n\n'
     read -r -p '  Press Enter to read the license... ' _ || true
     if have less; then less "$txt"; elif have more; then more "$txt"; else cat "$txt"; fi
     printf '\n'
-    read -r -p '  Type "accept" to accept the Teagram Engine License v'"$ver"' (anything else aborts): ' ans
+    read -r -p '  Type "accept" to accept the Teagram Mini Engine License v'"$ver"' (anything else aborts): ' ans
     [ "$ans" = "accept" ] || die "license not accepted — aborting"
   fi
 
@@ -167,7 +167,7 @@ phase_preflight() {
     [ "$l4t" = 38 ] || die "unsupported L4T R${l4t:-?} — the engine ships for JetPack 7.2 (L4T R38 / CUDA 13) only"
     log "Jetson L4T R38 (JetPack 7.2) — engine asset: $ASSET_KEY"
   elif [ "$ALLOW_NON_JETSON" = 1 ]; then
-    warn "not a Jetson — continuing because TEAGRAM_ALLOW_NON_JETSON=1 (dev/dry-run only)"
+    warn "not a Jetson — continuing because TEAGRAM_MINI_ALLOW_NON_JETSON=1 (dev/dry-run only)"
   else
     die "not an NVIDIA Jetson (/etc/nv_tegra_release missing)"
   fi
@@ -216,9 +216,9 @@ phase_brain() {
   log "pip install $src"
   run "$PREFIX/venv/bin/pip" install -q -U pip
   run "$PREFIX/venv/bin/pip" install "$src"
-  # ship the teagram operator CLI on PATH (repo root = the parent of the brain dir)
-  local cli; cli="$(dirname "$src")/cli/teagram"
-  if [ -f "$cli" ]; then log "install teagram CLI -> /usr/local/bin/teagram"; SUDO install -m 0755 "$cli" /usr/local/bin/teagram; fi
+  # ship the teagram-mini operator CLI on PATH (repo root = the parent of the brain dir)
+  local cli; cli="$(dirname "$src")/cli/teagram-mini"
+  if [ -f "$cli" ]; then log "install teagram-mini CLI -> /usr/local/bin/teagram-mini"; SUDO install -m 0755 "$cli" /usr/local/bin/teagram-mini; fi
 }
 
 # NemoClaw sandbox name (empty if none) + the nemoclaw binary + the /talk auth token,
@@ -234,11 +234,11 @@ detect_sandbox() {
 resolve_nemoclaw() { NEMOCLAW="$(command -v nemoclaw || echo "$HOME/.local/bin/nemoclaw")"; }
 resolve_gateway_token() {
   [ -n "$GATEWAY_TOKEN" ] && return 0
-  if [ -n "${TEAGRAM_GATEWAY_TOKEN:-}" ]; then GATEWAY_TOKEN="$TEAGRAM_GATEWAY_TOKEN"; return 0; fi
+  if [ -n "${TEAGRAM_MINI_GATEWAY_TOKEN:-}" ]; then GATEWAY_TOKEN="$TEAGRAM_MINI_GATEWAY_TOKEN"; return 0; fi
   # idempotent re-run: reuse the token already in brain.env instead of re-minting
   if [ -f "$ETC/brain.env" ]; then GATEWAY_TOKEN="$(sed -n 's/^GATEWAY_TOKEN=//p' "$ETC/brain.env" 2>/dev/null | head -1)"; fi
   [ -n "$GATEWAY_TOKEN" ] && return 0
-  GATEWAY_TOKEN="$( (head -c18 /dev/urandom 2>/dev/null || echo "teagram-$$") | od -An -tx1 | tr -d ' \n')"
+  GATEWAY_TOKEN="$( (head -c18 /dev/urandom 2>/dev/null || echo "teagram-mini-$$") | od -An -tx1 | tr -d ' \n')"
   return 0
 }
 
@@ -279,13 +279,13 @@ phase_agent() {
   "provider": "teagram", "mode": "realtime", "transport": "gateway-relay", "brain": "none",
   "providers": { "teagram": { "url": "$brain_ws", "token": "$GATEWAY_TOKEN" } } } } }
 JSON
-    "$NEMOCLAW" "$SANDBOX" upload "$patch" /tmp/teagram-talk.json
-    "$NEMOCLAW" "$SANDBOX" exec --no-tty -- openclaw config patch --file /tmp/teagram-talk.json
+    "$NEMOCLAW" "$SANDBOX" upload "$patch" /tmp/teagram-mini-talk.json
+    "$NEMOCLAW" "$SANDBOX" exec --no-tty -- openclaw config patch --file /tmp/teagram-mini-talk.json
   fi
 
   # 3. Reload the sandbox gateway + snapshot the wired state.
   run "$NEMOCLAW" "$SANDBOX" gateway restart
-  run "$NEMOCLAW" "$SANDBOX" snapshot create --name teagram-installed
+  run "$NEMOCLAW" "$SANDBOX" snapshot create --name teagram-mini-installed
   # NemoClaw egress-locks the sandbox by default; the brain is on the host docker bridge
   # (172.18.0.1), reachable without an egress exception. Verify with: nemoclaw $SANDBOX doctor.
   log "sandbox wired — verify with: $NEMOCLAW $SANDBOX doctor"
@@ -297,8 +297,8 @@ phase_credentials() {
   log "credentials -> $SECRETS (secrets never baked into units)"
   run mkdir -p "$SECRETS"; run chmod 700 "$SECRETS"
   # Bring-your-own OpenAI-compatible LLM (item-2 model): endpoint + key + model.
-  LLM_BASE_URL="${TEAGRAM_LLM_BASE_URL:-}"; LLM_MODEL="${TEAGRAM_LLM_MODEL:-gpt-oss-120b}"
-  local key="${TEAGRAM_LLM_API_KEY:-}"
+  LLM_BASE_URL="${TEAGRAM_MINI_LLM_BASE_URL:-}"; LLM_MODEL="${TEAGRAM_MINI_LLM_MODEL:-gpt-oss-120b}"
+  local key="${TEAGRAM_MINI_LLM_API_KEY:-}"
   if [ -z "$LLM_BASE_URL" ] && [ -t 0 ] && [ "$DRY_RUN" != 1 ]; then
     read -r -p 'LLM base URL (OpenAI-compatible, e.g. https://api.groq.com/openai/v1): ' LLM_BASE_URL
     read -r -p 'LLM model [gpt-oss-120b]: ' m; [ -n "$m" ] && LLM_MODEL="$m"
@@ -314,10 +314,10 @@ phase_credentials() {
 }
 
 # Ports + tunables (observed on the reference appliance).
-BRAIN_PORT="${TEAGRAM_BRAIN_PORT:-7861}"
-ENGINE_PORT="${TEAGRAM_ENGINE_PORT:-8000}"
-GATEWAY_PORT="${TEAGRAM_GATEWAY_PORT:-18789}"     # OpenClaw gateway (sandbox -> host forward)
-FRONTDOOR_HOST="${TEAGRAM_HOST:-teagram.local}"   # mDNS name the browser opens over HTTPS
+BRAIN_PORT="${TEAGRAM_MINI_BRAIN_PORT:-7861}"
+ENGINE_PORT="${TEAGRAM_MINI_ENGINE_PORT:-8000}"
+GATEWAY_PORT="${TEAGRAM_MINI_GATEWAY_PORT:-18789}"     # OpenClaw gateway (sandbox -> host forward)
+FRONTDOOR_HOST="${TEAGRAM_MINI_HOST:-teagram-mini.local}"   # mDNS name the browser opens over HTTPS
 render_unit() {  # render_unit <template.in> <dest-name>
   local tpl="$HERE/systemd/$1" out="$2"
   [ -f "$tpl" ] || die "missing unit template: $tpl"
@@ -348,7 +348,7 @@ write_caddyfile() {
     printf '  [dry-run] write %s  (%s -> 127.0.0.1:%s, tls internal)\n' "$path" "$FRONTDOOR_HOST" "$GATEWAY_PORT"; return
   fi
   printf '%s\n' \
-    "# teagram front door — rendered by install.sh. Edit the tls/upstream here, then:" \
+    "# teagram-mini front door — rendered by install.sh. Edit the tls/upstream here, then:" \
     "#   sudo systemctl reload caddy.service" \
     "$FRONTDOOR_HOST {" \
     "    tls internal" \
@@ -384,18 +384,18 @@ phase_services() {
   write_env "$ETC/brain.env" \
     "BRAIN_PORT=$BRAIN_PORT" \
     "LLM_BASE_URL=$LLM_BASE_URL" "LLM_MODEL=$LLM_MODEL" \
-    "TEAGRAM_URL=ws://127.0.0.1:$ENGINE_PORT/v1/realtime" \
+    "TEAGRAM_MINI_URL=ws://127.0.0.1:$ENGINE_PORT/v1/realtime" \
     "OPENCLAW_GATEWAY_URL=http://127.0.0.1:$GATEWAY_PORT" \
-    "TEAGRAM_PERSONA_FILE=$SECRETS/persona.md" \
+    "TEAGRAM_MINI_PERSONA_FILE=$SECRETS/persona.md" \
     "GATEWAY_TOKEN=$GATEWAY_TOKEN" "MALLOC_ARENA_MAX=2" "HF_HUB_OFFLINE=1"
 
-  render_unit teagram-engine.service.in teagram-engine.service
-  render_unit teagram-brain.service.in  teagram-brain.service
-  if [ -n "$SANDBOX" ]; then render_unit teagram-sandbox-recover.service.in teagram-sandbox-recover.service; fi
+  render_unit teagram-mini-engine.service.in teagram-mini-engine.service
+  render_unit teagram-mini-brain.service.in  teagram-mini-brain.service
+  if [ -n "$SANDBOX" ]; then render_unit teagram-mini-sandbox-recover.service.in teagram-mini-sandbox-recover.service; fi
 
   SUDO systemctl daemon-reload
-  SUDO systemctl enable --now teagram-engine.service teagram-brain.service
-  if [ -n "$SANDBOX" ]; then SUDO systemctl enable --now teagram-sandbox-recover.service; fi
+  SUDO systemctl enable --now teagram-mini-engine.service teagram-mini-brain.service
+  if [ -n "$SANDBOX" ]; then SUDO systemctl enable --now teagram-mini-sandbox-recover.service; fi
 }
 
 # Caddy isn't in the stock Ubuntu repos — add its official Cloudsmith apt repo (idempotent),
@@ -437,21 +437,21 @@ phase_frontdoor() {
 }
 
 # The Discord voice bridge (opt-in). The repo ships bridge/discord but nothing runs it, so a
-# plain voice/browser install stays Discord-free. Enable when TEAGRAM_ENABLE_BRIDGE=1 or a bot
+# plain voice/browser install stays Discord-free. Enable when TEAGRAM_MINI_ENABLE_BRIDGE=1 or a bot
 # token is already present. Discord voice is RTP/UDP and the NemoClaw sandbox is TCP-only, so
 # the bridge runs on the host and owns only the media leg, piping audio to the brain's /talk WS.
 phase_bridge() {
   local tokfile="$SECRETS/discord_bot_token"
   local have_token=0
   { [ -n "${DISCORD_BOT_TOKEN:-}" ] || [ -f "$tokfile" ]; } && have_token=1
-  if [ "${TEAGRAM_ENABLE_BRIDGE:-0}" != 1 ] && [ "$have_token" = 0 ]; then
-    log "discord bridge: not configured — skipped (TEAGRAM_ENABLE_BRIDGE=1 to add it)"
+  if [ "${TEAGRAM_MINI_ENABLE_BRIDGE:-0}" != 1 ] && [ "$have_token" = 0 ]; then
+    log "discord bridge: not configured — skipped (TEAGRAM_MINI_ENABLE_BRIDGE=1 to add it)"
     return 0
   fi
   log "discord bridge: install + enable (host media leg -> brain /talk)"
   have node || die "the Discord bridge needs Node >= 22 on the host (not found)"
 
-  local guild="${TEAGRAM_BRIDGE_GUILD_ID:-}" follow="${TEAGRAM_BRIDGE_FOLLOW_USER_ID:-}"
+  local guild="${TEAGRAM_MINI_BRIDGE_GUILD_ID:-}" follow="${TEAGRAM_MINI_BRIDGE_FOLLOW_USER_ID:-}"
   local token="${DISCORD_BOT_TOKEN:-}"
   # Idempotent re-run: reuse guild/follow already in bridge.env when not re-supplied via env,
   # so a plain repair run doesn't blank a previously-configured bridge (same as the gateway token).
@@ -489,15 +489,15 @@ phase_bridge() {
     "BRIDGE_GUILD_ID=$guild" "BRIDGE_FOLLOW_USER_ID=$follow" \
     "BRAIN_URL=ws://127.0.0.1:$BRAIN_PORT/talk" \
     "DISCORD_BOT_TOKEN_FILE=$tokfile"
-  render_unit teagram-discord-bridge.service.in teagram-discord-bridge.service
+  render_unit teagram-mini-discord-bridge.service.in teagram-mini-discord-bridge.service
   SUDO systemctl daemon-reload
   # Enable + start only when fully configured; otherwise install the unit inert so the operator
   # can fill $ETC/bridge.env + the token and start it, with no crash-loop on missing config.
   if [ -n "$guild" ] && [ -n "$follow" ] && { [ -n "$token" ] || [ -f "$tokfile" ]; }; then
-    SUDO systemctl enable --now teagram-discord-bridge.service
+    SUDO systemctl enable --now teagram-mini-discord-bridge.service
   else
-    SUDO systemctl enable teagram-discord-bridge.service
-    warn "bridge installed but not started — set BRIDGE_GUILD_ID/BRIDGE_FOLLOW_USER_ID in $ETC/bridge.env + the token in $tokfile, then: systemctl start teagram-discord-bridge"
+    SUDO systemctl enable teagram-mini-discord-bridge.service
+    warn "bridge installed but not started — set BRIDGE_GUILD_ID/BRIDGE_FOLLOW_USER_ID in $ETC/bridge.env + the token in $tokfile, then: systemctl start teagram-mini-discord-bridge"
   fi
 }
 
@@ -513,7 +513,7 @@ phase_verify() {
   if [ -n "$SANDBOX" ]; then
     ss -ltn 2>/dev/null | grep -q ":443 " || { warn "front door :443 not listening — browser access is down"; ok=0; }
   fi
-  [ "$ok" = 1 ] && log "engine + brain are up" || warn "something is not up — 'teagram doctor' / journalctl -u teagram-brain"
+  [ "$ok" = 1 ] && log "engine + brain are up" || warn "something is not up — 'teagram-mini doctor' / journalctl -u teagram-mini-brain"
 }
 
 usage_footer() {
@@ -523,7 +523,7 @@ usage_footer() {
   fi
   cat <<EOF
   next: open your OpenClaw dashboard, pair the device, start a Talk session.
-  ops:  teagram status | teagram doctor | teagram logs [engine|brain]
+  ops:  teagram-mini status | teagram-mini doctor | teagram-mini logs [engine|brain]
 EOF
 }
 

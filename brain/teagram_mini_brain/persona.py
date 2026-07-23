@@ -4,8 +4,8 @@
 # The voice brain's system prompt is composed as:   persona  +  VOICE_OVERLAY
 #
 #   persona       — the assistant's IDENTITY / "soul". Single source of truth is a
-#                   shared file (TEAGRAM_PERSONA_FILE, default
-#                   ~/.config/teagram/persona.md) that the OpenClaw *text* agent can
+#                   shared file (TEAGRAM_MINI_PERSONA_FILE, default
+#                   ~/.config/teagram-mini/persona.md) that the OpenClaw *text* agent can
 #                   read too, so a user who talks hears the same assistant they text.
 #                   If the file is missing/empty we fall back to FALLBACK_PERSONA so
 #                   the realtime loop never hard-fails on a persona lookup.
@@ -75,7 +75,7 @@ VOICE_OVERLAY = (
 # Shared source of truth for identity. The OpenClaw text agent should read the same
 # file (e.g. symlinked from its workspace AGENTS.md) so both surfaces are one agent.
 PERSONA_FILE = os.getenv(
-    "TEAGRAM_PERSONA_FILE", os.path.expanduser("~/.config/teagram/persona.md")
+    "TEAGRAM_MINI_PERSONA_FILE", os.path.expanduser("~/.config/teagram-mini/persona.md")
 )
 
 
@@ -92,7 +92,7 @@ WORKSPACE_DIR = os.getenv(
 )
 WORKSPACE_FILES = [
     f.strip() for f in os.getenv(
-        "TEAGRAM_WORKSPACE_FILES", "SOUL.md,IDENTITY.md,USER.md,MEMORY.md").split(",")
+        "TEAGRAM_MINI_WORKSPACE_FILES", "SOUL.md,IDENTITY.md,USER.md,MEMORY.md").split(",")
     if f.strip()
 ]
 # One runaway file (e.g. a fast-growing MEMORY.md) must not eat the prompt budget —
@@ -118,7 +118,7 @@ def load_workspace_context() -> str:
 
 def load_persona() -> str:
     """The shared identity + context text. Prefers the live OpenClaw workspace
-    files (the same ones the text agent reads); falls back to TEAGRAM_PERSONA_FILE,
+    files (the same ones the text agent reads); falls back to TEAGRAM_MINI_PERSONA_FILE,
     then the baked-in FALLBACK_PERSONA, so the voice loop never hard-fails."""
     ws = load_workspace_context()
     if ws:

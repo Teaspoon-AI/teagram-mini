@@ -1,7 +1,7 @@
 // teagram realtime-voice provider for OpenClaw.
 //
 // Bridges OpenClaw's gateway-relay Talk path to an external Pipecat speech-to-speech
-// server (brain/teagram_brain/gateway_server.py). OpenClaw drives this as a
+// server (brain/teagram_mini_brain/gateway_server.py). OpenClaw drives this as a
 // bridge-only provider: the gateway calls createBridge({...}) then connect(), pumps
 // the user's PCM16/24k mic audio in via sendAudio(Buffer), and relays our
 // onAudio / onClearAudio / onTranscript back to the Talk client. Pipecat owns the
@@ -15,9 +15,9 @@
 
 const PCM16_24K = { encoding: "pcm16", sampleRateHz: 24000, channels: 1 };
 
-// TEAGRAM_TRACE=1 enables verbose transcript-forwarding traces (debug aid; the
+// TEAGRAM_MINI_TRACE=1 enables verbose transcript-forwarding traces (debug aid; the
 // traced text is user speech, so keep this off in normal operation).
-const TRACE = /^(1|true)$/i.test(process.env.TEAGRAM_TRACE || "");
+const TRACE = /^(1|true)$/i.test(process.env.TEAGRAM_MINI_TRACE || "");
 
 /**
  * Append OpenClaw-selected TTS voice/language — and the gateway auth token — to the
@@ -25,7 +25,7 @@ const TRACE = /^(1|true)$/i.test(process.env.TEAGRAM_TRACE || "");
  * per session (gateway_server.py). A Kokoro voice's prefix implies its language, so
  * voice alone usually suffices; language is an optional phonemizer override. Voice
  * and language come from talk.realtime.providers.teagram.*; token from the same
- * config or the TEAGRAM_GATEWAY_TOKEN env (must match the gateway's GATEWAY_TOKEN).
+ * config or the TEAGRAM_MINI_GATEWAY_TOKEN env (must match the gateway's GATEWAY_TOKEN).
  */
 function withVoiceParams(url, cfg) {
   if (!url) return url;
@@ -43,7 +43,7 @@ function withVoiceParams(url, cfg) {
  *   (mainly for tests); live config arrives per-session as req.providerConfig
  *   (talk.realtime.providers.teagram.*).
  */
-export function buildTeagramRealtimeProvider(defaults = {}) {
+export function buildTeagramMiniRealtimeProvider(defaults = {}) {
   return {
     id: "teagram",
     label: "Teagram (on-device Pipecat)",
@@ -64,16 +64,16 @@ export function buildTeagramRealtimeProvider(defaults = {}) {
       const url = withVoiceParams(base, {
         voice: cfg.voice || defaults.voice,
         language: cfg.language || defaults.language,
-        token: cfg.token || defaults.token || process.env.TEAGRAM_GATEWAY_TOKEN,
+        token: cfg.token || defaults.token || process.env.TEAGRAM_MINI_GATEWAY_TOKEN,
       });
-      return new TeagramBridge(req, url);
+      return new TeagramMiniBridge(req, url);
     },
   };
 }
 
 // RealtimeVoiceBridge implementation. createBridge() is synchronous and callbacks
 // must not fire before it returns, so all WS work starts in connect().
-class TeagramBridge {
+class TeagramMiniBridge {
   constructor(req, url) {
     this._req = req; // RealtimeVoiceBridgeCreateRequest (callbacks + providerConfig)
     this._url = url; // ws://<pipecat-host>:7861/talk

@@ -32,7 +32,7 @@ from typing import List, Optional
 
 from loguru import logger
 
-from teagram_brain.tts_text import CAPTION_LEAD_SECS
+from teagram_mini_brain.tts_text import CAPTION_LEAD_SECS
 
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,

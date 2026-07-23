@@ -54,9 +54,9 @@ from pipecat.frames.frames import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
-# TEAGRAM_TRACE=1 keeps the [CAP] caption-pipeline traces around (they've caught
+# TEAGRAM_MINI_TRACE=1 keeps the [CAP] caption-pipeline traces around (they've caught
 # every bubble-rendering regression so far) without spamming normal logs.
-_TRACE = os.getenv("TEAGRAM_TRACE", "").strip().lower() in ("1", "true")
+_TRACE = os.getenv("TEAGRAM_MINI_TRACE", "").strip().lower() in ("1", "true")
 
 # While the user's interims are flowing, assistant partials are HELD (see
 # CaptionTap): the Talk UI commits the active assistant bubble the moment the
@@ -65,7 +65,7 @@ _TRACE = os.getenv("TEAGRAM_TRACE", "").strip().lower() in ("1", "true")
 # renders into that stray bubble). A gap longer than this since the last user
 # interim counts as quiet again — inter-interim gaps run ~0.3-0.7s, and a fresh
 # reply's first audio lands well past this after the user's final.
-_USER_HOLD_S = float(os.getenv("TEAGRAM_CAPTION_USER_HOLD_S", "1.2"))
+_USER_HOLD_S = float(os.getenv("TEAGRAM_MINI_CAPTION_USER_HOLD_S", "1.2"))
 
 # Caption text rides pipecat 1.5.0's AggregatedTextProgressFrame, NOT the bare
 # TTSTextFrame word tokens: the sequencer emits one progress frame per word with

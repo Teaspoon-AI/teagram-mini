@@ -21,7 +21,7 @@
 #
 # The bed is synthesized procedurally (royalty-free, no external asset) and cached
 # to assets/typing.wav next to this file. Drop your own 24 kHz mono wav at
-# TEAGRAM_THINKING_WAV to override it. Kill switch: TEAGRAM_THINKING_SOUND=0.
+# TEAGRAM_MINI_THINKING_WAV to override it. Kill switch: TEAGRAM_MINI_THINKING_SOUND=0.
 #
 import asyncio
 import os
@@ -39,15 +39,15 @@ from pipecat.frames.frames import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
-ENABLED = os.getenv("TEAGRAM_THINKING_SOUND", "1").strip().lower() not in ("0", "false", "no")
+ENABLED = os.getenv("TEAGRAM_MINI_THINKING_SOUND", "1").strip().lower() not in ("0", "false", "no")
 
 _SR = 24000                 # engine TTS rate; the relay is 24 kHz both ways
 _CHUNK_MS = 40
-_GRACE_S = float(os.getenv("TEAGRAM_THINKING_GRACE_S", "1.5"))   # silence before the bed starts
-_GAIN = float(os.getenv("TEAGRAM_THINKING_GAIN", "0.8"))         # 1.0 = the synthesized peak
-_MAX_S = float(os.getenv("TEAGRAM_THINKING_MAX_S", "60"))        # hard cap (> ask_openclaw timeout)
+_GRACE_S = float(os.getenv("TEAGRAM_MINI_THINKING_GRACE_S", "1.5"))   # silence before the bed starts
+_GAIN = float(os.getenv("TEAGRAM_MINI_THINKING_GAIN", "0.8"))         # 1.0 = the synthesized peak
+_MAX_S = float(os.getenv("TEAGRAM_MINI_THINKING_MAX_S", "60"))        # hard cap (> ask_openclaw timeout)
 _WAV = os.getenv(
-    "TEAGRAM_THINKING_WAV",
+    "TEAGRAM_MINI_THINKING_WAV",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "typing.wav"),
 )
 # Only genuinely-long tool calls get a thinking bed; the fast tools resolve before

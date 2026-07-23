@@ -39,7 +39,7 @@ from pipecat.frames.frames import (  # noqa: E402
 from pipecat.processors.frame_processor import FrameDirection  # noqa: E402
 from pipecat.utils.text.base_text_aggregator import AggregationType  # noqa: E402
 
-from teagram_brain.captions import CaptionTap, VoiceActivity  # noqa: E402
+from teagram_mini_brain.captions import CaptionTap, VoiceActivity  # noqa: E402
 
 
 def P(ctx, seg, text, acc, pts=None):

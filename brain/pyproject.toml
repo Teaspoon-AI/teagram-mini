@@ -3,14 +3,14 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "teagram-brain"
+name = "teagram-mini-brain"
 version = "0.0.0"
-description = "teagram voice brain — Pipecat pipeline with heard-grounded barge-in, memory recall, and tools."
+description = "teagram-mini voice brain — Pipecat pipeline with heard-grounded barge-in, memory recall, and tools."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 # Every entry below is a DIRECT import somewhere in the package (the import closure of
-# teagram_brain.gateway_server); transitive deps are left to the resolver.
+# teagram_mini_brain.gateway_server); transitive deps are left to the resolver.
 #
 # pipecat extras (1.5.0): only `websocket` is needed —
 #   websocket -> pipecat.transports.websocket.fastapi (the /talk transport) + fastapi.
@@ -23,7 +23,7 @@ license = { text = "MIT" }
 # run ONNX models in THIS process) — the brain is torch-free, not onnxruntime-free.
 # See THIRD_PARTY_LICENSES.md.
 #
-# Pinned to the deployed appliance venv (`teagram-venv`, arm64 / py3.12.3, `pip freeze`
+# Pinned to the deployed appliance venv (`teagram-mini-venv`, arm64 / py3.12.3, `pip freeze`
 # 2026-07-21) so a fresh install resolves the same set the brain was validated against —
 # notably numpy==1.26.4 (pipecat allows numpy<3, so a fresh resolve otherwise pulls 2.x).
 # These are the DIRECT imports of the gateway_server closure; transitive deps stay
@@ -40,11 +40,11 @@ dependencies = [
 ]
 
 [project.scripts]
-teagram-brain = "teagram_brain.gateway_server:main"
+teagram-mini-brain = "teagram_mini_brain.gateway_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["teagram_brain*"]
+include = ["teagram_mini_brain*"]
 
 [tool.pytest.ini_options]
 # The tests/test_*.py files are standalone scripts (each has a __main__ that exits

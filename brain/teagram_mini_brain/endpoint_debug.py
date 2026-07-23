@@ -1,5 +1,5 @@
 #
-# endpoint_debug.py — LIVE endpointing instrumentation (opt-in, TEAGRAM_ENDPOINT_DEBUG=1).
+# endpoint_debug.py — LIVE endpointing instrumentation (opt-in, TEAGRAM_MINI_ENDPOINT_DEBUG=1).
 #
 # Answers "where does the post-speech lag actually go?" on the REAL mic path, in
 # real time, without recordings:
@@ -35,7 +35,7 @@ from pipecat.frames.frames import (
 from pipecat.metrics.metrics import TurnMetricsData
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
-ENABLED = os.getenv("TEAGRAM_ENDPOINT_DEBUG", "").strip().lower() in ("1", "true")
+ENABLED = os.getenv("TEAGRAM_MINI_ENDPOINT_DEBUG", "").strip().lower() in ("1", "true")
 
 
 class InstrumentedSileroVAD(SileroVADAnalyzer):

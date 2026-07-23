@@ -13,8 +13,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from teagram_brain import memory_recall as recall_mod  # noqa: E402
-from teagram_brain.memory_recall import MemoryRecall  # noqa: E402
+from teagram_mini_brain import memory_recall as recall_mod  # noqa: E402
+from teagram_mini_brain.memory_recall import MemoryRecall  # noqa: E402
 
 from pipecat.frames.frames import (  # noqa: E402
     Frame,

@@ -53,9 +53,9 @@ if (!GUILD_ID || !FOLLOW_USER_ID) {
 }
 const BRAIN_URL = process.env.BRAIN_URL || "ws://127.0.0.1:7861/talk";
 const FORCE_JOIN_CHANNEL_ID = process.env.BRIDGE_JOIN_CHANNEL_ID || "";
-const VOICE = process.env.TEAGRAM_VOICE || "";
+const VOICE = process.env.TEAGRAM_MINI_VOICE || "";
 const TOKEN_FILE =
-  process.env.DISCORD_BOT_TOKEN_FILE || `${process.env.HOME}/.config/teagram/discord_bot_token`;
+  process.env.DISCORD_BOT_TOKEN_FILE || `${process.env.HOME}/.config/teagram-mini/discord_bot_token`;
 
 const FRAME_MS = 20;
 const BRAIN_RATE = 24000;

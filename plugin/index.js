@@ -10,7 +10,7 @@
 //   talk.realtime.providers.teagram.url = "ws://<pipecat-host>:7861/talk"
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
-import { buildTeagramRealtimeProvider } from "./provider.js";
+import { buildTeagramMiniRealtimeProvider } from "./provider.js";
 
 export default definePluginEntry({
   id: "teagram-realtime",
@@ -19,6 +19,6 @@ export default definePluginEntry({
     "Routes OpenClaw realtime voice (gateway-relay) to an external Pipecat " +
     "speech-to-speech server with heard-grounded barge-in.",
   register(api) {
-    api.registerRealtimeVoiceProvider(buildTeagramRealtimeProvider());
+    api.registerRealtimeVoiceProvider(buildTeagramMiniRealtimeProvider());
   },
 });

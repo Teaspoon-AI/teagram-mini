@@ -1,9 +1,9 @@
 {
-  "name": "teagram-discord-bridge",
+  "name": "teagram-mini-discord-bridge",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Host-side Discord voice bridge: joins a voice channel with the KettleBot identity and pipes audio to the teagram Pipecat brain (/talk). Discord voice needs UDP, which the NemoClaw sandbox forbids by design, so this tiny shim owns only the media leg on the host — the brain (and, through it, the sandboxed OpenClaw agent) stays the mind.",
+  "description": "Host-side Discord voice bridge: joins a voice channel with the KettleBot identity and pipes audio to the teagram-mini Pipecat brain (/talk). Discord voice needs UDP, which the NemoClaw sandbox forbids by design, so this tiny shim owns only the media leg on the host — the brain (and, through it, the sandboxed OpenClaw agent) stays the mind.",
   "scripts": {
     "start": "node index.js"
   },

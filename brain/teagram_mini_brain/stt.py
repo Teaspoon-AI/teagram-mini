@@ -52,7 +52,7 @@ from pipecat.utils.time import time_now_iso8601
 # P99 latency from speech end to final transcript (broadcast to downstream turn
 # strategies). The engine's realtime STT targets <500 ms delta delay; ~0.8 s end-to-end p99
 # is a conservative default — override per deployment.
-TEAGRAM_TTFS_P99 = 0.8
+TEAGRAM_MINI_TTFS_P99 = 0.8
 
 try:
     import websockets
@@ -62,14 +62,14 @@ except ModuleNotFoundError as e:
     raise
 
 
-class TeagramSTTService(WebsocketSTTService):
+class TeagramMiniSTTService(WebsocketSTTService):
     """Streams audio to a teagram-mini engine and yields interim + final transcripts.
 
     Args:
-        url: teagram /v1/realtime WebSocket URL (e.g. ws://jetson.local:8000/v1/realtime).
-        model: model name sent in the session.update handshake. teagram is a
+        url: engine /v1/realtime WebSocket URL (e.g. ws://jetson.local:8000/v1/realtime).
+        model: model name sent in the session.update handshake. the engine is a
             single-model server and only acknowledges this, so any value works.
-        sample_rate: audio sample rate fed to the engine. teagram expects 16 kHz
+        sample_rate: audio sample rate fed to the engine. the engine expects 16 kHz
             mono PCM16; Pipecat resamples to this for us.
         language: language tag attached to emitted frames.
         commit_on_user_stopped_speaking: if True, send input_audio_buffer.commit
@@ -85,7 +85,7 @@ class TeagramSTTService(WebsocketSTTService):
         sample_rate: int = 16000,
         language: Language = Language.EN,
         commit_on_user_stopped_speaking: bool = True,
-        ttfs_p99_latency: float = TEAGRAM_TTFS_P99,
+        ttfs_p99_latency: float = TEAGRAM_MINI_TTFS_P99,
         **kwargs,
     ):
         super().__init__(
@@ -208,10 +208,10 @@ class TeagramSTTService(WebsocketSTTService):
     async def _connect_websocket(self):
         if self._websocket:
             return
-        logger.debug(f"{self}: connecting to teagram at {self._url}")
+        logger.debug(f"{self}: connecting to the engine at {self._url}")
         try:
             self._websocket = await websockets.connect(self._url)
-            # Handshake: teagram is single-model and just acknowledges this.
+            # Handshake: the engine is single-model and just acknowledges this.
             await self._websocket.send(
                 json.dumps({"type": "session.update", "model": self._model})
             )
@@ -242,7 +242,7 @@ class TeagramSTTService(WebsocketSTTService):
                 # half-open socket dropped by reference never finishes the close
                 # handshake from our side, and the single-session engine's slot
                 # stays held until TCP times it out. close() is idempotent.
-                logger.debug(f"{self}: disconnecting from teagram")
+                logger.debug(f"{self}: disconnecting from the engine")
                 await self._websocket.close()
         finally:
             self._websocket = None

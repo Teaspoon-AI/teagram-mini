@@ -1,7 +1,7 @@
 {
   "version": "0.0.0",
   "channel": "stable",
-  "_note": "Release manifest — single source of truth for install.sh, `teagram update`, and box OTA. All URLs served from teagram.co (no HF, no binaries repo). Placeholder values until the first release is cut.",
+  "_note": "Release manifest — single source of truth for install.sh, `teagram-mini update`, and box OTA. All URLs served from teagram.co (no HF, no binaries repo). Placeholder values until the first release is cut.",
   "engine": {
     "release": "1.3",
     "eula": {

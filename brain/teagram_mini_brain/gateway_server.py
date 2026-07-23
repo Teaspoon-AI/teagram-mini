@@ -19,8 +19,8 @@
 # service resamples to the STT's 16 kHz. the engine TTS provides per-word
 # playout timestamps, the sharpest heard-grounding.
 #
-# Usage:  teagram-brain [--host 0.0.0.0] [--port 7861]
-#   Requires the engine reachable at TEAGRAM_URL (default ws://127.0.0.1:8000).
+# Usage:  teagram-mini-brain [--host 0.0.0.0] [--port 7861]
+#   Requires the engine reachable at TEAGRAM_MINI_URL (default ws://127.0.0.1:8000).
 #
 import argparse
 import asyncio
@@ -56,12 +56,12 @@ from pipecat.turns.user_stop.turn_analyzer_user_turn_stop_strategy import (  # n
 )
 from pipecat.turns.user_turn_strategies import UserTurnStrategies  # noqa: E402
 
-from teagram_brain.captions import (  # noqa: E402
+from teagram_mini_brain.captions import (  # noqa: E402
     CaptionTap,
     UserTranscriptEmitter,
     VoiceActivity,
 )
-from teagram_brain.endpointing import (  # noqa: E402
+from teagram_mini_brain.endpointing import (  # noqa: E402
     ENDPOINT_STOP_SECS,
     INTERRUPT_MIN_WORDS,
     SMARTTURN_COMPLETE_THRESHOLD,
@@ -69,50 +69,50 @@ from teagram_brain.endpointing import (  # noqa: E402
     VAD_MIN_VOLUME,
     EagerSmartTurnAnalyzer,
 )
-from teagram_brain.gateway_serializer import (  # noqa: E402
+from teagram_mini_brain.gateway_serializer import (  # noqa: E402
     PIPELINE_SAMPLE_RATE,
     RELAY_SAMPLE_RATE,
-    TeagramGatewaySerializer,
+    TeagramMiniGatewaySerializer,
 )
-from teagram_brain.memory_hygiene import MemoryReclaim, turn_reclaim  # noqa: E402
-from teagram_brain.memory_recall import MemoryRecall  # noqa: E402
-from teagram_brain.turn_timing import TurnTimer  # noqa: E402
-from teagram_brain import endpoint_debug  # noqa: E402
-from teagram_brain import thinking_sound  # noqa: E402
-from teagram_brain.thinking_sound import ThinkingSound  # noqa: E402
-from teagram_brain.followup_gate import FollowupGate  # noqa: E402
+from teagram_mini_brain.memory_hygiene import MemoryReclaim, turn_reclaim  # noqa: E402
+from teagram_mini_brain.memory_recall import MemoryRecall  # noqa: E402
+from teagram_mini_brain.turn_timing import TurnTimer  # noqa: E402
+from teagram_mini_brain import endpoint_debug  # noqa: E402
+from teagram_mini_brain import thinking_sound  # noqa: E402
+from teagram_mini_brain.thinking_sound import ThinkingSound  # noqa: E402
+from teagram_mini_brain.followup_gate import FollowupGate  # noqa: E402
 
 
 def _vad_cls():
-    # Opt-in (TEAGRAM_ENDPOINT_DEBUG=1): instrumented VAD logs volume/confidence
+    # Opt-in (TEAGRAM_MINI_ENDPOINT_DEBUG=1): instrumented VAD logs volume/confidence
     # per state transition; otherwise the stock analyzer.
     return (endpoint_debug.InstrumentedSileroVAD if endpoint_debug.ENABLED
             else SileroVADAnalyzer)
-from teagram_brain.heard_context import HeardContextCorrector  # noqa: E402
-from teagram_brain.engine_tts import LANG_NAMES  # noqa: E402
-from teagram_brain.persona import build_system_prompt, load_persona  # noqa: E402
+from teagram_mini_brain.heard_context import HeardContextCorrector  # noqa: E402
+from teagram_mini_brain.engine_tts import LANG_NAMES  # noqa: E402
+from teagram_mini_brain.persona import build_system_prompt, load_persona  # noqa: E402
 # Built from the shared service factories (services.py) — no transport/demo imports,
 # so the module stays cheap to import.
-from teagram_brain.services import make_llm, make_stt, make_tts  # noqa: E402
-from teagram_brain.tools import build_tools_schema, register_tools  # noqa: E402
-from teagram_brain.transcript_ledger import TranscriptLedger  # noqa: E402
+from teagram_mini_brain.services import make_llm, make_stt, make_tts  # noqa: E402
+from teagram_mini_brain.tools import build_tools_schema, register_tools  # noqa: E402
+from teagram_mini_brain.transcript_ledger import TranscriptLedger  # noqa: E402
 
 LISTEN_PORT = int(os.getenv("GATEWAY_PORT", "7861"))
 # Shared secret for /talk. When set, a client must present it as ?token=<value> on
-# the WebSocket URL (the teagram-realtime plugin sends its TEAGRAM_GATEWAY_TOKEN
+# the WebSocket URL (the teagram-realtime plugin sends its TEAGRAM_MINI_GATEWAY_TOKEN
 # env / provider-config token); a missing or wrong token is rejected BEFORE the
 # pipeline — and before the single-slot eviction — runs. When unset, anyone who can
 # reach this port gets a full agent session (memory read/write tools included) and
 # can evict the live call, so we log a loud warning at startup.
 GATEWAY_TOKEN = os.getenv("GATEWAY_TOKEN", "")
 
-# Agent-first experiment (TEAGRAM_AGENT_FIRST=1): the sandboxed OpenClaw agent owns
+# Agent-first experiment (TEAGRAM_MINI_AGENT_FIRST=1): the sandboxed OpenClaw agent owns
 # every conversational turn — ask_openclaw runs SYNCHRONOUSLY (no follow-up
 # injector, so tools.py takes its sync path) and a strict system directive makes
 # the brain LLM a thin router/phraser instead of the mind. Bridge-is-brain is the
-# default; set TEAGRAM_AGENT_FIRST=1 to enable (the launcher can source it from a
-# ~/.config/teagram/agent_first file so it toggles without editing the unit).
-AGENT_FIRST = os.getenv("TEAGRAM_AGENT_FIRST", "").strip().lower() in ("1", "true")
+# default; set TEAGRAM_MINI_AGENT_FIRST=1 to enable (the launcher can source it from a
+# ~/.config/teagram-mini/agent_first file so it toggles without editing the unit).
+AGENT_FIRST = os.getenv("TEAGRAM_MINI_AGENT_FIRST", "").strip().lower() in ("1", "true")
 
 AGENT_FIRST_DIRECTIVE = (
     "AGENT-FIRST MODE — this overrides earlier tool guidance. For EVERY user "
@@ -201,7 +201,7 @@ async def run_relay_bot(websocket: WebSocket):
             audio_in_sample_rate=PIPELINE_SAMPLE_RATE,
             audio_out_sample_rate=RELAY_SAMPLE_RATE,
             add_wav_header=False,
-            serializer=TeagramGatewaySerializer(),
+            serializer=TeagramMiniGatewaySerializer(),
         ),
     )
     # pipecat 1.0 moved VAD off the transport onto the user aggregator
@@ -276,7 +276,7 @@ async def run_relay_bot(websocket: WebSocket):
     heard_corrector = HeardContextCorrector(ledger, context)
     activity = VoiceActivity()  # shared: user-interim stamps gate assistant partials (captions.py)
     turn_marks: dict = {}  # shared by the three TurnTimer taps (per-session, see TurnTimer)
-    # Opt-in live endpointing probe (TEAGRAM_ENDPOINT_DEBUG=1): two taps sharing
+    # Opt-in live endpointing probe (TEAGRAM_MINI_ENDPOINT_DEBUG=1): two taps sharing
     # one dict emit real-time bubbles for the VAD-stop → turn-commit → first-audio
     # cascade; no-ops when disabled.
     ep_marks: dict = {}
@@ -438,12 +438,12 @@ def main():
         logger.warning(
             "GATEWAY_TOKEN is not set — /talk is UNAUTHENTICATED: anyone who can "
             "reach this port can use the agent (and its memory tools) and evict "
-            "the live call. Set GATEWAY_TOKEN (server) + TEAGRAM_GATEWAY_TOKEN "
+            "the live call. Set GATEWAY_TOKEN (server) + TEAGRAM_MINI_GATEWAY_TOKEN "
             "(plugin) except on a trusted network."
         )
     logger.info("Priming TTS service...")
     make_tts()  # warm the engine TTS client once at startup (G2P/synthesis are engine-side)
-    logger.info(f"teagram OpenClaw relay server on ws://{args.host}:{args.port}/talk")
+    logger.info(f"teagram-mini OpenClaw relay server on ws://{args.host}:{args.port}/talk")
     uvicorn.run(app, host=args.host, port=args.port)
 
 

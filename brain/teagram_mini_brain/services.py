@@ -15,9 +15,9 @@ import os
 
 from pipecat.services.openai.llm import OpenAILLMService
 
-from teagram_brain.stt import TeagramSTTService
+from teagram_mini_brain.stt import TeagramMiniSTTService
 
-TEAGRAM_URL = os.getenv("TEAGRAM_URL", "ws://127.0.0.1:8000/v1/realtime")
+TEAGRAM_MINI_URL = os.getenv("TEAGRAM_MINI_URL", "ws://127.0.0.1:8000/v1/realtime")
 
 
 # gpt-oss reasoning effort. gpt-oss emits hundreds of hidden chain-of-thought
@@ -44,12 +44,12 @@ def get_llm_api_key() -> str:
     key = os.getenv("LLM_API_KEY")
     if key:
         return key
-    path = os.path.expanduser("~/.config/teagram/llm_key")
+    path = os.path.expanduser("~/.config/teagram-mini/llm_key")
     if os.path.exists(path):
         with open(path) as f:
             return f.read().strip()
     raise RuntimeError(
-        "no LLM API key — set LLM_API_KEY or write ~/.config/teagram/llm_key "
+        "no LLM API key — set LLM_API_KEY or write ~/.config/teagram-mini/llm_key "
         "(see docs/CONFIG.md)"
     )
 
@@ -84,7 +84,7 @@ def make_llm():
 def make_tts(voice: str | None = None, language: str | None = None):
     # voice/language are per-session (OpenClaw-selectable); they fall back
     # to the TTS_VOICE/TTS_LANGUAGE env, then the defaults.
-    from teagram_brain.engine_tts import EngineTTSService
+    from teagram_mini_brain.engine_tts import EngineTTSService
 
     return EngineTTSService(
         voice=voice or os.getenv("TTS_VOICE", "af_heart"),
@@ -92,5 +92,5 @@ def make_tts(voice: str | None = None, language: str | None = None):
     )
 
 
-def make_stt() -> TeagramSTTService:
-    return TeagramSTTService(url=TEAGRAM_URL)
+def make_stt() -> TeagramMiniSTTService:
+    return TeagramMiniSTTService(url=TEAGRAM_MINI_URL)

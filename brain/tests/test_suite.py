@@ -5,7 +5,7 @@
 # __main__ that exits nonzero on failure). This wrapper lets `pytest test_suite.py`
 # run them all — the refactor gate — without rewriting them as pytest natives.
 # Runs on the appliance (model files + venv deps live there):
-#   ~/teagram-venv/bin/python3 -m pytest test_suite.py -v
+#   ~/teagram-mini-venv/bin/python3 -m pytest test_suite.py -v
 #
 import os
 import subprocess

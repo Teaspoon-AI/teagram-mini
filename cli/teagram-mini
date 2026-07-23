@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 #
-# teagram — operator CLI for a teagram-mini appliance.
+# teagram-mini — operator CLI for a teagram-mini appliance.
 #
-#   teagram status                three services + ports + memory at a glance
-#   teagram doctor [--fix]        health sweep with fix hints (--fix restarts dead units)
-#   teagram update [--check]      diff installed vs the release manifest; apply what changed
-#   teagram logs [engine|brain]   journalctl wrapper (defaults to brain; passes -f/-n through)
+#   teagram-mini status                three services + ports + memory at a glance
+#   teagram-mini doctor [--fix]        health sweep with fix hints (--fix restarts dead units)
+#   teagram-mini update [--check]      diff installed vs the release manifest; apply what changed
+#   teagram-mini logs [engine|brain]   journalctl wrapper (defaults to brain; passes -f/-n through)
 #
 # Thin wrapper over systemd + the release manifest, reading the layout install.sh
-# produces: /opt/teagram (bin/models/venv/manifest.json), /etc/teagram/*.env,
-# ~/.config/teagram (secrets).
+# produces: /opt/teagram-mini (bin/models/venv/manifest.json), /etc/teagram-mini/*.env,
+# ~/.config/teagram-mini (secrets).
 #
 set -euo pipefail
 
-PREFIX="${TEAGRAM_PREFIX:-/opt/teagram}"
-ETC="${TEAGRAM_ETC:-/etc/teagram}"
-SECRETS="${TEAGRAM_SECRETS_DIR:-$HOME/.config/teagram}"
-MANIFEST_URL="${TEAGRAM_MANIFEST_URL:-https://get.teagram.co/manifest/stable.json}"
-ENGINE_PORT="${TEAGRAM_ENGINE_PORT:-8000}"
-BRAIN_PORT="${TEAGRAM_BRAIN_PORT:-7861}"
+PREFIX="${TEAGRAM_MINI_PREFIX:-/opt/teagram-mini}"
+ETC="${TEAGRAM_MINI_ETC:-/etc/teagram-mini}"
+SECRETS="${TEAGRAM_MINI_SECRETS_DIR:-$HOME/.config/teagram-mini}"
+MANIFEST_URL="${TEAGRAM_MINI_MANIFEST_URL:-https://get.teagram.co/manifest/stable.json}"
+ENGINE_PORT="${TEAGRAM_MINI_ENGINE_PORT:-8000}"
+BRAIN_PORT="${TEAGRAM_MINI_BRAIN_PORT:-7861}"
 
 GREEN='1;32'; RED='1;31'; YEL='1;33'
 c()    { printf '\033[%sm%s\033[0m' "$1" "$2"; }
@@ -43,10 +43,10 @@ fetch() {  # fetch <url-or-path> <dest>
 svc_line()  { local st; st="$(active "$1")"; local col="$RED"; [ "$st" = active ] && col="$GREEN"; printf '  %-28s %s\n' "$1" "$(c "$col" "$st")"; }
 port_line() { if listening "$1"; then printf '  %-28s %s\n' "port :$1 ($2)" "$(c "$GREEN" listening)"; else printf '  %-28s %s\n' "port :$1 ($2)" "$(c "$RED" 'not listening')"; fi; }
 cmd_status() {
-  echo "teagram — status"
-  svc_line teagram-engine
-  svc_line teagram-brain
-  installed teagram-sandbox-recover && svc_line teagram-sandbox-recover
+  echo "teagram-mini — status"
+  svc_line teagram-mini-engine
+  svc_line teagram-mini-brain
+  installed teagram-mini-sandbox-recover && svc_line teagram-mini-sandbox-recover
   port_line "$ENGINE_PORT" engine
   port_line "$BRAIN_PORT" "brain /talk"
   have free && printf '  %-28s %s\n' memory "$(free -h | awk 'NR==2{print $3" used, "$7" avail / "$2" total"}')"
@@ -60,12 +60,12 @@ cmd_doctor() {
   ok()    { printf '  %s %s\n' "$(c "$GREEN" ✓)" "$*"; }
   warnc() { printf '  %s %s\n' "$(c "$YEL" !)" "$*"; }
   failc() { printf '  %s %s\n' "$(c "$RED" ✗)" "$*"; RC=1; }
-  echo "teagram — doctor"
+  echo "teagram-mini — doctor"
   [ -d "$PREFIX" ] && ok "install root $PREFIX" || failc "not installed — $PREFIX missing (run install.sh)"
   [ -x "$PREFIX/bin/voxtral" ] && ok "engine binary" || failc "engine binary missing ($PREFIX/bin/voxtral)"
   [ -f "$PREFIX/models/voxtral/consolidated.safetensors" ] && ok "STT model" || failc "STT model missing ($PREFIX/models/voxtral)"
   [ -f "$PREFIX/models/kokoro/Kokoro_espeak_F16.gguf" ] && ok "Kokoro TTS model" || failc "Kokoro model missing ($PREFIX/models/kokoro)"
-  [ -x "$PREFIX/venv/bin/teagram-brain" ] && ok "brain (teagram-brain)" || failc "brain not installed in $PREFIX/venv"
+  [ -x "$PREFIX/venv/bin/teagram-mini-brain" ] && ok "brain (teagram-mini-brain)" || failc "brain not installed in $PREFIX/venv"
   have espeak-ng && ok "espeak-ng (engine G2P dep)" || failc "espeak-ng missing — apt install espeak-ng"
   local fpt; fpt="$(envval "$ETC/engine.env" KOKORO_RESERVE_FPT)"
   if [ -z "$fpt" ]; then failc "KOKORO_RESERVE_FPT unset in $ETC/engine.env — the code default (50) OOMs an 8GB box"
@@ -75,7 +75,7 @@ cmd_doctor() {
   [ -n "$(envval "$ETC/brain.env" GATEWAY_TOKEN)" ] && ok "GATEWAY_TOKEN set" || warnc "GATEWAY_TOKEN unset — /talk is unauthenticated"
   if [ -f "$SECRETS/llm_key" ] || [ -n "${LLM_API_KEY:-}" ]; then ok "LLM API key present"; else warnc "no LLM key — set LLM_API_KEY or write $SECRETS/llm_key"; fi
   local u st
-  for u in teagram-engine teagram-brain; do
+  for u in teagram-mini-engine teagram-mini-brain; do
     st="$(active "$u")"
     if [ "$st" = active ]; then ok "$u active"
     else
@@ -101,7 +101,7 @@ cmd_update() {
   local local_mf="$PREFIX/manifest.json"
   [ -f "$local_mf" ] || die "not installed: $local_mf missing (run install.sh first)"
   local remote; remote="$(mktemp)"; fetch "$MANIFEST_URL" "$remote"
-  echo "teagram — update  (installed  ->  $MANIFEST_URL)"
+  echo "teagram-mini — update  (installed  ->  $MANIFEST_URL)"
   local changed
   changed="$(python3 - "$local_mf" "$remote" <<'PY'
 import json, sys
@@ -128,10 +128,10 @@ PY
 
 # ---- logs ------------------------------------------------------------------
 cmd_logs() {
-  local unit=teagram-brain
+  local unit=teagram-mini-brain
   case "${1:-}" in
-    engine) unit=teagram-engine; shift ;;
-    brain)  unit=teagram-brain;  shift ;;
+    engine) unit=teagram-mini-engine; shift ;;
+    brain)  unit=teagram-mini-brain;  shift ;;
   esac
   exec journalctl -u "$unit.service" "$@"
 }

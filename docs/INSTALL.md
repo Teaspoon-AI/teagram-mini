@@ -18,11 +18,11 @@ downloads. You bring your own Jetson and your own LLM.
 - **Step 3 — Install teagram-mini.** Run
   `bash <(curl -fsSL https://get.teagram.co/mini)`.
 - **Step 4 — Open the front door and talk.** From any device on your network,
-  open **`https://teagram.local`** in a browser and accept the one-time
+  open **`https://teagram-mini.local`** in a browser and accept the one-time
   certificate warning. The appliance serves HTTPS with a self-signed
   certificate. The browser needs HTTPS for the microphone to work; the
-  installer sets up the certificate and the `teagram.local` name for you. Pair
+  installer sets up the certificate and the `teagram-mini.local` name for you. Pair
   the device, then start a Talk session. If something looks wrong, run
-  `teagram status` or `teagram doctor`.
+  `teagram-mini status` or `teagram-mini doctor`.
 
 TODO: expand each step; add troubleshooting, uninstall, and update paths.

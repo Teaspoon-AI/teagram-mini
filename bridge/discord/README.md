@@ -1,6 +1,6 @@
 # Discord voice bridge
 
-Native realtime Discord voice for your teagram assistant. Discord voice media
+Native realtime Discord voice for your teagram-mini assistant. Discord voice media
 is RTP over **UDP** to per-call voice servers — the NemoClaw sandbox is
 TCP-only by design — so this small host-side process owns only the media leg
 and pipes audio to the brain's `/talk` WebSocket. The brain keeps owning the
@@ -20,13 +20,13 @@ each other.
 
 Create a Discord application + bot (Developer Portal), enable the **Server
 Members** intent, invite it to your server with Connect + Speak permissions,
-and save the bot token to `~/.config/teagram/discord_bot_token` (mode 0600).
+and save the bot token to `~/.config/teagram-mini/discord_bot_token` (mode 0600).
 
 **Installer path (recommended).** The teagram-mini installer sets all of this up
-when you opt in: re-run it with `TEAGRAM_ENABLE_BRIDGE=1` (or with the token
+when you opt in: re-run it with `TEAGRAM_MINI_ENABLE_BRIDGE=1` (or with the token
 already saved) and it installs the deps under the prefix, writes the
-`teagram-discord-bridge` service, and enables it. Pass
-`TEAGRAM_BRIDGE_GUILD_ID` / `TEAGRAM_BRIDGE_FOLLOW_USER_ID` non-interactively, or
+`teagram-mini-discord-bridge` service, and enables it. Pass
+`TEAGRAM_MINI_BRIDGE_GUILD_ID` / `TEAGRAM_MINI_BRIDGE_FOLLOW_USER_ID` non-interactively, or
 let it prompt. The manual steps below are for development or a standalone bridge.
 
 ```bash
@@ -41,11 +41,11 @@ npm install     # native @discordjs/opus builds from source on arm64 (needs gcc/
 |---|---|---|
 | `BRIDGE_GUILD_ID` | **yes** | Discord server (guild) id to serve |
 | `BRIDGE_FOLLOW_USER_ID` | **yes** | user the bot follows into voice channels |
-| `DISCORD_BOT_TOKEN` / `DISCORD_BOT_TOKEN_FILE` | token or file | defaults to `~/.config/teagram/discord_bot_token` |
+| `DISCORD_BOT_TOKEN` / `DISCORD_BOT_TOKEN_FILE` | token or file | defaults to `~/.config/teagram-mini/discord_bot_token` |
 | `BRAIN_URL` | no | brain WebSocket (default `ws://127.0.0.1:7861/talk`) |
 | `BRIDGE_PRIME_MS` | no | downlink jitter-buffer prime (default 40; lower = less latency) |
 | `BRIDGE_JOIN_CHANNEL_ID` | no | force-join a voice channel at startup (smoke tests) |
-| `TEAGRAM_VOICE` | no | TTS voice id passed to the brain |
+| `TEAGRAM_MINI_VOICE` | no | TTS voice id passed to the brain |
 
 ## Run
 

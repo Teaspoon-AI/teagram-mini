@@ -18,7 +18,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Isolate the write BEFORE importing openclaw_client (it reads MEMORY_DIR at import).
-_TMP_MEM = tempfile.mkdtemp(prefix="teagram-remember-test-")
+_TMP_MEM = tempfile.mkdtemp(prefix="teagram-mini-remember-test-")
 os.environ["OPENCLAW_MEMORY_DIR"] = _TMP_MEM
 
 from loguru import logger  # noqa: E402
@@ -43,9 +43,9 @@ from pipecat.processors.aggregators.llm_response_universal import (  # noqa: E40
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor  # noqa: E402
 from pipecat.utils.time import time_now_iso8601  # noqa: E402
 
-from teagram_brain import tools as tools_mod  # noqa: E402
-from teagram_brain.persona import build_system_prompt  # noqa: E402
-from teagram_brain.services import make_llm  # noqa: E402
+from teagram_mini_brain import tools as tools_mod  # noqa: E402
+from teagram_mini_brain.persona import build_system_prompt  # noqa: E402
+from teagram_mini_brain.services import make_llm  # noqa: E402
 
 FIRED = []
 

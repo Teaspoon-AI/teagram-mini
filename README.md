@@ -9,9 +9,9 @@ repository also contains the installer, the release manifest, and the
 OpenClaw realtime-voice plugin. The plugin turns the assistant into a full
 agent.
 
-The brain uses **teagram-engine** for speech-to-text and text-to-speech.
+The brain uses **teagram-mini-engine** for speech-to-text and text-to-speech.
 `install.sh` downloads and installs the engine for you. You can use a
-different engine if it is compatible with the teagram-engine interface.
+different engine if it is compatible with the teagram-mini-engine interface.
 
 - **Local voice loop:** speech recognition and speech synthesis run on the device
 - **Target:** Jetson Orin (Nano / NX / AGX), JetPack 7.2 / CUDA 13
@@ -36,10 +36,10 @@ an installation and does not duplicate it. See
 
 ## Layout
 
-- `brain/` — the voice brain, an installable Python package (`teagram_brain`)
+- `brain/` — the voice brain, an installable Python package (`teagram_mini_brain`)
 - `plugin/` — the OpenClaw realtime-voice provider (npm `@teaspoon-ai/openclaw-teagram-realtime`)
-- `manifest/` — the release manifest for the installer and `teagram update`
-- `install.sh` · `cli/teagram` · `systemd/` — install and operate the product
+- `manifest/` — the release manifest for the installer and `teagram-mini update`
+- `install.sh` · `cli/teagram-mini` · `systemd/` — install and operate the product
 - `docs/` — INSTALL, ARCHITECTURE, CONFIG, FAQ
 
 ## Licensing
@@ -51,5 +51,5 @@ install time. The engine is not in this repository. See
 
 > **Status: pre-launch.** The brain (`brain/`) and the plugin (`plugin/`) are
 > complete and validated on Python 3.12 (x86 and the arm64 appliance). The
-> installer, the `teagram` CLI, and the systemd units are ready. The hosted
+> installer, the `teagram-mini` CLI, and the systemd units are ready. The hosted
 > engine artifacts are not published yet.

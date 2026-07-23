@@ -32,11 +32,11 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.services.llm_service import FunctionCallParams
 
-from teagram_brain import openclaw_client as oc
-from teagram_brain.engine_tts import ENGINE_VOICES, LANG_NAMES
+from teagram_mini_brain import openclaw_client as oc
+from teagram_mini_brain.engine_tts import ENGINE_VOICES, LANG_NAMES
 
 # The engine's serve log (decode ms/step lives here). Override per host.
-ENGINE_LOG = os.getenv("ENGINE_LOG", os.path.expanduser("~/teagram-engine.log"))
+ENGINE_LOG = os.getenv("ENGINE_LOG", os.path.expanduser("~/teagram-mini-engine.log"))
 
 HOST_STATUS = FunctionSchema(
     name="get_host_status",
@@ -259,26 +259,26 @@ async def _search_memory(params: FunctionCallParams):
 # consults return in ~15-30s; past ~45s the voice wait degrades faster than the
 # answer improves (and the slow tail is usually an impossible query making the
 # agent churn), so we cut it with an honest "taking too long" rather than dead air.
-_NATIVE_CONSULT_TIMEOUT = float(os.getenv("TEAGRAM_NATIVE_CONSULT_TIMEOUT", "45"))
+_NATIVE_CONSULT_TIMEOUT = float(os.getenv("TEAGRAM_MINI_NATIVE_CONSULT_TIMEOUT", "45"))
 # 1.5s, not 5: a live relay acks a native consult within moments, while the
 # Discord bridge (a plain /talk client) never acks at all — so on that path the
 # old 5s was pure dead time added to EVERY delegated action before the CLI
 # fallback even started.
-_NATIVE_CONSULT_ACK_TIMEOUT = float(os.getenv("TEAGRAM_NATIVE_CONSULT_ACK_TIMEOUT", "1.5"))
+_NATIVE_CONSULT_ACK_TIMEOUT = float(os.getenv("TEAGRAM_MINI_NATIVE_CONSULT_ACK_TIMEOUT", "1.5"))
 # The pipecat function-call timeout for ask_openclaw MUST exceed the handler's own
 # worst case (ACK 5s + native 45s = 50s) or pipecat abandons the call and drops the
 # late-arriving answer. Kept as one knob so the two can't drift. (Only bounds the
 # SYNC path; the ASYNC path returns in <1s — its wait is off the turn.)
-_ASK_OPENCLAW_TIMEOUT = float(os.getenv("TEAGRAM_ASK_OPENCLAW_TIMEOUT", "55"))
+_ASK_OPENCLAW_TIMEOUT = float(os.getenv("TEAGRAM_MINI_ASK_OPENCLAW_TIMEOUT", "55"))
 # ASYNC path: the consult runs off the turn as a background task, so it can wait far
 # longer than a voice turn ever could — the answer is spoken as an unprompted
 # follow-up whenever it lands (or an honest "couldn't get it" past this ceiling).
-_ASYNC_CONSULT_TIMEOUT = float(os.getenv("TEAGRAM_ASYNC_CONSULT_TIMEOUT", "180"))
+_ASYNC_CONSULT_TIMEOUT = float(os.getenv("TEAGRAM_MINI_ASYNC_CONSULT_TIMEOUT", "180"))
 
 
 def _consult_outcome(result):
     """(text, error) from a resolved consult result — text is None if empty."""
-    from teagram_brain import consult_bridge
+    from teagram_mini_brain import consult_bridge
 
     if isinstance(result, dict) and result.get("error") \
             and not any(result.get(k) for k in ("text", "result", "output")):
@@ -294,9 +294,9 @@ async def _consult_progress(llm):
     which the ASYNC path resolves immediately (hence 'pushed 0 chunks').
     Singleton per session: overlapping consults share ONE narrator — two
     narrators doubled every line audibly (observed live)."""
-    if getattr(llm, "_teagram_progress_active", False):
+    if getattr(llm, "_teagram_mini_progress_active", False):
         return
-    llm._teagram_progress_active = True
+    llm._teagram_mini_progress_active = True
     try:
         await asyncio.sleep(9)
         await llm.push_frame(TTSSpeakFrame("Still working on it."))
@@ -305,7 +305,7 @@ async def _consult_progress(llm):
     except asyncio.CancelledError:
         pass
     finally:
-        llm._teagram_progress_active = False
+        llm._teagram_mini_progress_active = False
 
 
 async def _consult_and_followup(call_id, fut, request, followup, tool_call_id, llm=None):
@@ -315,7 +315,7 @@ async def _consult_and_followup(call_id, fut, request, followup, tool_call_id, l
     a session-lifecycle task (params.llm.create_task) — a barge-in or the user moving
     on to another topic does NOT cancel the in-flight consult. tool_call_id lets the
     injector rewrite the placeholder tool result once the real outcome is known."""
-    from teagram_brain import consult_bridge
+    from teagram_mini_brain import consult_bridge
 
     progress = asyncio.create_task(_consult_progress(llm)) if llm is not None else None
     try:
@@ -356,7 +356,7 @@ async def _consult_and_followup(call_id, fut, request, followup, tool_call_id, l
 async def _ask_openclaw(params: FunctionCallParams, followup=None):
     import uuid
 
-    from teagram_brain import consult_bridge
+    from teagram_mini_brain import consult_bridge
 
     request = (params.arguments or {}).get("request", "").strip()
     if not request:
@@ -369,19 +369,19 @@ async def _ask_openclaw(params: FunctionCallParams, followup=None):
     # in-flight consult per exact request text; the duplicate resolves silently
     # and the original's follow-up reports for both.
     if followup is not None:
-        inflight = getattr(params.llm, "_teagram_consults", None)
+        inflight = getattr(params.llm, "_teagram_mini_consults", None)
         if inflight is None:
-            inflight = params.llm._teagram_consults = {}
+            inflight = params.llm._teagram_mini_consults = {}
         prior = inflight.get(request)
         if prior is not None and not prior.done():
-            params.llm._teagram_mute_next_at = time.monotonic()
+            params.llm._teagram_mini_mute_next_at = time.monotonic()
             await params.result_callback({
                 "status": "duplicate",
                 "instruction": ("This exact request is already in progress; "
                                 "its outcome will arrive. Do not respond.")})
             return
 
-    call_id = f"teagram-consult-{uuid.uuid4().hex[:12]}"
+    call_id = f"teagram-mini-consult-{uuid.uuid4().hex[:12]}"
     fut = consult_bridge.create(call_id)
     await params.llm.push_frame(OutputTransportMessageUrgentFrame(
         message={"type": "tool_call", "call_id": call_id,
@@ -408,7 +408,7 @@ async def _ask_openclaw(params: FunctionCallParams, followup=None):
         # deterministic "I'll work on that" ack; the muted completion's text is
         # swallowed by the push_frame patch, and the REAL outcome arrives via the
         # follow-up injector.
-        params.llm._teagram_mute_next_at = time.monotonic()
+        params.llm._teagram_mini_mute_next_at = time.monotonic()
         await params.result_callback({
             "status": "working_in_background",
             "instruction": (
@@ -551,7 +551,7 @@ def _fallback_line(name: str, args: dict, lang: str) -> str | None:
         # Agent-first: every turn is a consult — a stock ack per turn would be
         # noise (ThinkingSound covers the wait) and would corrupt TURN-TIMING's
         # tts_first_audio, which must mark the ANSWER in this mode.
-        if os.getenv("TEAGRAM_AGENT_FIRST", "").strip().lower() in ("1", "true"):
+        if os.getenv("TEAGRAM_MINI_AGENT_FIRST", "").strip().lower() in ("1", "true"):
             return None
         return {"es": "Voy a trabajar en eso, un momento.",
                 "it": "Ci lavoro subito, un attimo.",
@@ -564,31 +564,31 @@ def _install_spoke_tracker(llm) -> None:
     """Track whether the CURRENT completion emitted any real text. Patched at the
     service level (not a pipeline processor) so the flag is guaranteed set before
     function handlers run — downstream processors race the handler, this doesn't."""
-    if getattr(llm, "_teagram_spoke_patched", False):
+    if getattr(llm, "_teagram_mini_spoke_patched", False):
         return
-    llm._teagram_spoke_patched = True
-    llm._teagram_spoke = False
+    llm._teagram_mini_spoke_patched = True
+    llm._teagram_mini_spoke = False
     orig_push = llm.push_frame
 
     async def push_frame(frame, direction=FrameDirection.DOWNSTREAM):
         if isinstance(frame, LLMFullResponseStartFrame):
-            llm._teagram_spoke = False
+            llm._teagram_mini_spoke = False
             # Arm the one-completion mute (see _ask_openclaw async path): the
             # completion that runs right after the "working in background" tool
             # result must not speak — the model reliably ignores instructions
             # and announces the task as DONE there (three live incidents). The
             # 5s arm window keeps a late/raced completion from being muted.
-            armed_at = getattr(llm, "_teagram_mute_next_at", None)
-            llm._teagram_mute_next_at = None
-            llm._teagram_muting = (
+            armed_at = getattr(llm, "_teagram_mini_mute_next_at", None)
+            llm._teagram_mini_mute_next_at = None
+            llm._teagram_mini_muting = (
                 armed_at is not None and (time.monotonic() - armed_at) < 5.0)
         elif isinstance(frame, LLMFullResponseEndFrame):
-            llm._teagram_muting = False
+            llm._teagram_mini_muting = False
         elif isinstance(frame, LLMTextFrame):
-            if getattr(llm, "_teagram_muting", False):
+            if getattr(llm, "_teagram_mini_muting", False):
                 return None  # swallow: this completion is display/speech-muted
             if any(c.isalnum() for c in getattr(frame, "text", "")):
-                llm._teagram_spoke = True
+                llm._teagram_mini_spoke = True
         return await orig_push(frame, direction)
 
     llm.push_frame = push_frame
@@ -618,7 +618,7 @@ def _wrap(name, handler, lang_fn):
             summary = _args_summary(args)
             await _bubble(params.llm,
                           f"> 🔧 **{name}**" + (f" · `{summary}`" if summary else ""))
-            if not getattr(params.llm, "_teagram_spoke", True):
+            if not getattr(params.llm, "_teagram_mini_spoke", True):
                 line = _fallback_line(name, args, lang_fn())
                 if line:
                     await params.llm.push_frame(TTSSpeakFrame(line))

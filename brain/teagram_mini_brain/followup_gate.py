@@ -36,9 +36,9 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 # How long the conversation must stay quiet before a window counts (rejects
 # mid-thought pauses and between-turn gaps).
-_QUIET_SECS = float(os.getenv("TEAGRAM_FOLLOWUP_QUIET_S", "0.7"))
+_QUIET_SECS = float(os.getenv("TEAGRAM_MINI_FOLLOWUP_QUIET_S", "0.7"))
 # Ceiling on how long to hold an answer waiting for a gap; past this, speak anyway.
-_MAX_WAIT = float(os.getenv("TEAGRAM_FOLLOWUP_MAX_WAIT_S", "60"))
+_MAX_WAIT = float(os.getenv("TEAGRAM_MINI_FOLLOWUP_MAX_WAIT_S", "60"))
 
 
 class FollowupGate(FrameProcessor):

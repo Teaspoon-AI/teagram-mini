@@ -14,8 +14,8 @@ import sys
 from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from teagram_brain.heard_context import HeardContextCorrector  # noqa: E402
-from teagram_brain.transcript_ledger import Utterance  # noqa: E402
+from teagram_mini_brain.heard_context import HeardContextCorrector  # noqa: E402
+from teagram_mini_brain.transcript_ledger import Utterance  # noqa: E402
 
 HN_FULL = "The top three are Nobody ever gets credit, then Claude Fable, then Homebrew."
 HN_HEARD = "The top three are Nobody ever gets credit,"  # heard prefix (trailing comma cleaned off)

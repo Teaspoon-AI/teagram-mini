@@ -7,8 +7,8 @@ One appliance, three parts:
 
 - **Engine** (`:8000`) — speech-to-text and speech synthesis. The installer
   downloads it. Any engine works here if it is compatible with the
-  teagram-engine interface.
-- **Brain** (`brain/teagram_brain`, `:7861/talk`) — the Pipecat pipeline. It
+  teagram-mini-engine interface.
+- **Brain** (`brain/teagram_mini_brain`, `:7861/talk`) — the Pipecat pipeline. It
   connects your speech, your LLM, and the spoken reply. It owns barge-in, the
   heard-grounding ledger, memory recall, tools, and the persona. It sends
   plain text to the engine. It receives audio and per-word timestamps back.

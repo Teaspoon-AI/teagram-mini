@@ -32,12 +32,12 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection
 from pipecat.services.tts_service import TTSService
 
-from teagram_brain import tts_text as tts_text_lead  # noqa: E402  (shared caption-lead constant)
-from teagram_brain.tts_text import split_clauses_ramp
+from teagram_mini_brain import tts_text as tts_text_lead  # noqa: E402  (shared caption-lead constant)
+from teagram_mini_brain.tts_text import split_clauses_ramp
 
-# TEAGRAM_TRACE=1 keeps the [WTS] word-timestamp traces (debug aid for the
+# TEAGRAM_MINI_TRACE=1 keeps the [WTS] word-timestamp traces (debug aid for the
 # caption/heard-ledger pipeline) without spamming normal logs.
-_TRACE = os.getenv("TEAGRAM_TRACE", "").strip().lower() in ("1", "true")
+_TRACE = os.getenv("TEAGRAM_MINI_TRACE", "").strip().lower() in ("1", "true")
 
 _SAMPLE_RATE = 24000  # the engine outputs 24 kHz
 

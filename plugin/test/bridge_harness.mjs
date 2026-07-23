@@ -1,4 +1,4 @@
-// Standalone test of the teagram bridge <-> Pipecat gateway_server path, with NO
+// Standalone test of the teagram-mini bridge <-> Pipecat gateway_server path, with NO
 // OpenClaw gateway in the loop. Exercises exactly the code in provider.js the way
 // the relay would: createBridge -> connect -> sendAudio(Buffer) -> onAudio/onClear/
 // onTranscript. Reports the assistant audio + transcripts that come back.
@@ -12,11 +12,11 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
-import { buildTeagramRealtimeProvider } from "../provider.js";
+import { buildTeagramMiniRealtimeProvider } from "../provider.js";
 
 const wavPath = process.argv[2] && process.argv[2] !== "-" ? process.argv[2] : null;
 const url = process.argv[3] || "ws://127.0.0.1:7861/talk";
-const outPath = process.argv[4] || "/tmp/teagram_bridge_out.wav";
+const outPath = process.argv[4] || "/tmp/teagram_mini_bridge_out.wav";
 const SR = 24000;
 
 function readWavPcm(path) {
@@ -69,7 +69,7 @@ const req = {
   onClose: (reason) => events.push(`CLOSE: ${reason}`),
 };
 
-const provider = buildTeagramRealtimeProvider();
+const provider = buildTeagramMiniRealtimeProvider();
 console.log("provider:", provider.id, "| configured:", provider.isConfigured(req));
 const bridge = provider.createBridge(req);
 

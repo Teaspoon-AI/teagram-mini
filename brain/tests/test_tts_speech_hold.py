@@ -22,7 +22,7 @@ from pipecat.frames.frames import (  # noqa: E402
 )
 from pipecat.processors.frame_processor import FrameDirection  # noqa: E402
 
-from teagram_brain.engine_tts import EngineTTSService  # noqa: E402
+from teagram_mini_brain.engine_tts import EngineTTSService  # noqa: E402
 
 
 def make_service():
